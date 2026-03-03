@@ -4,7 +4,16 @@ module.exports = {
   content: ["./app/**/*.{js,jsx,ts,tsx}", "./components/**/*.{js,jsx,ts,tsx}"],
   presets: [require("nativewind/preset")],
   theme: {
-    extend: {},
+    extend: {
+      fontFamily: {
+        grift: ["Grift-Regular"],
+        medium: ["Grift-Medium"],
+        black: ["Grift-Black"],
+        light: ["Grift-Light"],
+        extralight: ["Grift-Extralight"],
+        bold: ["Grift-Bold"],
+      },
+    },
   },
   plugins: [],
-}
+};
