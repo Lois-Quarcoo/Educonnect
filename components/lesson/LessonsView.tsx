@@ -2,8 +2,11 @@ import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { Bookmark, CheckCircle2, PlayCircle, FileText } from 'lucide-react-native';
 import { AnimatedCircularProgress } from 'react-native-circular-progress';
+interface LessonsViewProps {
+  subjectId: string;
+}
 
-export default function LessonsView() {
+export default function LessonsView({ subjectId }: LessonsViewProps) {
   return (
     <ScrollView className="flex-1 px-6 pt-6" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
       {/* Continue Learning */}

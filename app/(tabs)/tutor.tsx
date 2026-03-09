@@ -8,6 +8,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Dimensions,
+  ActivityIndicator
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -17,17 +18,10 @@ import {
   Camera,
   BookOpen,
 } from 'lucide-react-native';
+import { ChatMessage, generateTutorResponse } from '@/services/ai';
+import Animated, { FadeInUp, SlideInRight, SlideInLeft } from 'react-native-reanimated';
 
 const { width } = Dimensions.get('window');
-
-// ── Types ─────────────────────────────────────────────────────────────────────
-type Message = {
-  id: string;
-  role: 'ai' | 'user';
-  text: string;
-  suggestions?: string[];
-  lessonCard?: { subject: string; title: string; meta: string };
-};
 
 // ── Lesson Card ───────────────────────────────────────────────────────────────
 const LessonCard = ({
@@ -40,11 +34,11 @@ const LessonCard = ({
   meta: string;
 }) => (
   <View className="mt-3 bg-white rounded-xl p-3 flex-row items-center shadow-sm border border-gray-100">
-    <View className="w-9 h-9 rounded-lg bg-purple-100 items-center justify-center mr-3">
-      <BookOpen size={18} color="#7C3AED" />
+    <View className="w-9 h-9 rounded-lg bg-orange-100 items-center justify-center mr-3">
+      <BookOpen size={18} color="#EA580C" />
     </View>
     <View>
-      <Text className="text-purple-600 font-bold text-xs tracking-widest uppercase">
+      <Text className="text-orange-600 font-bold text-xs tracking-widest uppercase">
         {subject}
       </Text>
       <Text className="text-gray-900 font-semibold text-sm mt-0.5">{title}</Text>
@@ -59,30 +53,33 @@ const SuggestionPill = ({
   onPress,
 }: {
   label: string;
-  onPress: () => void;
+  onPress: (text: string) => void;
 }) => (
   <TouchableOpacity
-    onPress={onPress}
-    className="self-start bg-purple-50 border border-purple-200 rounded-full px-4 py-2 mb-2"
+    onPress={() => onPress(label)}
+    className="self-start bg-orange-50 border border-orange-200 rounded-full px-4 py-2 mb-2"
     activeOpacity={0.75}
   >
-    <Text className="text-purple-700 text-sm">{label}</Text>
+    <Text className="text-orange-700 text-sm font-medium">{label}</Text>
   </TouchableOpacity>
 );
 
 // ── Message Bubble ────────────────────────────────────────────────────────────
-const MessageBubble = ({ msg }: { msg: Message }) => {
+const MessageBubble = ({ msg, onSuggestionPress }: { msg: ChatMessage, onSuggestionPress: (t: string) => void }) => {
   const isUser = msg.role === 'user';
   return (
-    <View className={`mb-4 ${isUser ? 'items-end' : 'items-start'}`}>
+    <Animated.View 
+       entering={isUser ? SlideInRight.springify() : SlideInLeft.springify().delay(200)}
+       className={`mb-4 w-full ${isUser ? 'items-end' : 'items-start'}`}
+    >
       {!isUser && (
-        <View className="flex-row items-start">
-          <View className="w-8 h-8 rounded-full bg-purple-600 items-center justify-center mr-2 mt-1">
+        <View className="flex-row items-start w-full pr-8">
+          <Animated.View entering={FadeInUp.delay(300)} className="w-8 h-8 rounded-full bg-gradient-to-tr from-orange-500 to-yellow-500 items-center justify-center mr-2 mt-1 shadow-sm">
             <Sparkles size={14} color="#fff" />
-          </View>
-          <View style={{ maxWidth: width * 0.72 }}>
-            <View className="bg-purple-50 rounded-2xl rounded-tl-sm px-4 py-3">
-              <Text className="text-gray-800 text-sm leading-5">{msg.text}</Text>
+          </Animated.View>
+          <View className="flex-1">
+            <View className="bg-white border border-gray-100 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
+              <Text className="text-gray-800 text-sm leading-6">{msg.text}</Text>
               {msg.lessonCard && (
                 <LessonCard
                   subject={msg.lessonCard.subject}
@@ -91,12 +88,12 @@ const MessageBubble = ({ msg }: { msg: Message }) => {
                 />
               )}
             </View>
-            {msg.suggestions && (
-              <View className="mt-3 ml-1">
-                {msg.suggestions.map((s) => (
-                  <SuggestionPill key={s} label={s} onPress={() => {}} />
+            {msg.suggestions && msg.suggestions.length > 0 && (
+              <Animated.View entering={FadeInUp.delay(600)} className="mt-3 ml-1 flex-row flex-wrap">
+                {msg.suggestions.map((s: string) => (
+                  <SuggestionPill key={s} label={s} onPress={onSuggestionPress} />
                 ))}
-              </View>
+              </Animated.View>
             )}
           </View>
         </View>
@@ -104,70 +101,61 @@ const MessageBubble = ({ msg }: { msg: Message }) => {
 
       {isUser && (
         <View
-          style={{ maxWidth: width * 0.72 }}
-          className="bg-purple-700 rounded-2xl rounded-tr-sm px-4 py-3"
+          style={{ maxWidth: width * 0.75 }}
+          className="bg-[#1F2937] rounded-3xl rounded-tr-sm px-5 py-3.5 shadow-md"
         >
-          <Text className="text-white text-sm leading-5">{msg.text}</Text>
+          <Text className="text-white text-base leading-6 pr-2">{msg.text}</Text>
         </View>
       )}
-    </View>
+    </Animated.View>
   );
 };
 
 // ── Initial Messages ──────────────────────────────────────────────────────────
-const INITIAL_MESSAGES: Message[] = [
+const INITIAL_MESSAGES: ChatMessage[] = [
   {
     id: '1',
     role: 'ai',
-    text: "Hi Sarah! 👋 I'm your AI Tutor. I can answer questions, summarize your uploaded notes, or quiz you on any subject. How can I help you today?",
+    text: "Hi there! 👋 I'm Spark, your AI Tutor. I can explain complex problems, summarize your uploaded notes, or quiz you on any subject. How can I help you today?",
     suggestions: [
       'Explain photosynthesis',
-      'Quiz me on algebra',
-      'Summarize this video',
-      'Help with my homework',
+      'Help me with Algebra',
+      'Quiz me on History',
     ],
-  },
-  {
-    id: '2',
-    role: 'user',
-    text: 'Can you help me understand linear equations?',
-  },
-  {
-    id: '3',
-    role: 'ai',
-    text: "I'd be happy to help! A great place to start is this lesson from your Mathematics library:",
-    lessonCard: {
-      subject: 'Mathematics',
-      title: 'Introduction to Algebra',
-      meta: 'Lesson • 15 min',
-    },
-  },
+  }
 ];
 
 // ── Screen ────────────────────────────────────────────────────────────────────
-const AITutor = () => {
-  const [messages, setMessages] = useState<Message[]>(INITIAL_MESSAGES);
+export default function AITutor() {
+  const [messages, setMessages] = useState<ChatMessage[]>(INITIAL_MESSAGES);
   const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
 
-  const sendMessage = () => {
-    const text = input.trim();
-    if (!text) return;
+  const handleSend = async (textOverride?: string) => {
+    const textToSend = textOverride || input.trim();
+    if (!textToSend || isLoading) return;
 
-    const userMsg: Message = {
+    // Add user message to UI immediately
+    const userMsg: ChatMessage = {
       id: Date.now().toString(),
       role: 'user',
-      text,
+      text: textToSend,
     };
-    const aiReply: Message = {
-      id: (Date.now() + 1).toString(),
-      role: 'ai',
-      text: "That's a great question! Let me look that up for you and put together a clear explanation.",
-    };
-
-    setMessages((prev) => [...prev, userMsg, aiReply]);
+    
     setInput('');
+    setMessages((prev: ChatMessage[]) => [...prev, userMsg]);
+    setIsLoading(true);
+    
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+
+    // Call Gemini API
+    const aiReply = await generateTutorResponse(messages, textToSend);
+
+    setMessages((prev: ChatMessage[]) => [...prev, aiReply]);
+    setIsLoading(false);
+    
+    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 200);
   };
 
   return (
@@ -175,16 +163,15 @@ const AITutor = () => {
       <KeyboardAvoidingView
         className="flex-1"
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
       >
         {/* ── Header ── */}
-        <View className="flex-row items-center justify-between px-5 py-3 bg-gray-50 border-b border-gray-100">
+        <View className="flex-row items-center justify-between px-5 py-4 bg-white border-b border-gray-100 shadow-sm z-10">
           <View className="w-8" />
-          <View className="flex-row items-center">
-            <Text className="text-gray-900 font-bold text-base mr-1">AI Tutor</Text>
-            <Sparkles size={16} color="#F59E0B" />
+          <View className="flex-row items-center bg-orange-50 px-3 py-1.5 rounded-full border border-orange-100">
+            <Text className="text-orange-900 font-black tracking-widest text-xs uppercase mr-1">Spark AI</Text>
+            <Sparkles size={14} color="#F59E0B" />
           </View>
-          <TouchableOpacity className="w-8 h-8 rounded-full bg-white border border-gray-200 items-center justify-center shadow-sm">
+          <TouchableOpacity className="w-8 h-8 rounded-full bg-gray-50 border border-gray-200 items-center justify-center shadow-sm">
             <Info size={16} color="#6B7280" />
           </TouchableOpacity>
         </View>
@@ -192,48 +179,59 @@ const AITutor = () => {
         {/* ── Messages ── */}
         <ScrollView
           ref={scrollRef}
-          className="flex-1 px-4 pt-4"
+          className="flex-1 px-4 pt-6"
           showsVerticalScrollIndicator={false}
-          onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: false })}
+          onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
         >
-          {messages.map((msg) => (
-            <MessageBubble key={msg.id} msg={msg} />
+          {messages.map((msg: ChatMessage) => (
+            <MessageBubble key={msg.id} msg={msg} onSuggestionPress={handleSend} />
           ))}
-          <View className="h-4" />
+          
+          {isLoading && (
+            <Animated.View entering={FadeInUp} className="flex-row items-start w-full mb-6">
+              <View className="w-8 h-8 rounded-full bg-gradient-to-tr from-orange-400 to-yellow-400 items-center justify-center mr-2 shadow-sm">
+                <Sparkles size={14} color="#fff" />
+              </View>
+              <View className="bg-white border border-gray-100 rounded-2xl rounded-tl-sm px-6 py-4 shadow-sm items-center justify-center flex-row min-w-[80px]">
+                 <ActivityIndicator size="small" color="#F59E0B" />
+              </View>
+            </Animated.View>
+          )}
+          
+          <View className="h-10" />
         </ScrollView>
 
         {/* ── Input Bar ── */}
-        <View className="px-4 pb-4 pt-2 bg-gray-50 border-t border-gray-100">
-          <View className="flex-row items-center bg-white rounded-full px-4 py-2.5 shadow-sm border border-gray-100">
-            <TouchableOpacity className="mr-2" hitSlop={8}>
-              <Paperclip size={20} color="#9CA3AF" />
+        <View className="px-4 pb-6 pt-3 bg-white border-t border-gray-100 shadow-[0_-10px_15px_rgba(0,0,0,0.02)]">
+          <View className="flex-row items-end bg-gray-50 rounded-3xl px-4 py-2 shadow-sm border border-gray-200 min-h-[56px]">
+            <TouchableOpacity className="mb-2 mr-3" hitSlop={8}>
+              <Paperclip size={22} color="#9CA3AF" />
             </TouchableOpacity>
-            <TouchableOpacity className="mr-3" hitSlop={8}>
-              <Camera size={20} color="#9CA3AF" />
+            <TouchableOpacity className="mb-2 mr-3" hitSlop={8}>
+              <Camera size={22} color="#9CA3AF" />
             </TouchableOpacity>
+            
             <TextInput
-              className="flex-1 text-gray-800 text-sm"
-              placeholder="Ask me anything..."
+              className="flex-1 text-gray-800 text-base mb-2 pt-1 max-h-32"
+              placeholder="Ask Spark..."
               placeholderTextColor="#9CA3AF"
               value={input}
               onChangeText={setInput}
-              returnKeyType="send"
-              onSubmitEditing={sendMessage}
               multiline
             />
+            
             <TouchableOpacity
-              onPress={sendMessage}
-              className="ml-2 bg-purple-600 rounded-full px-4 py-2 flex-row items-center"
-              activeOpacity={0.85}
+              onPress={() => handleSend()}
+              disabled={!input.trim() || isLoading}
+              className={`ml-2 rounded-full w-10 h-10 mb-1 items-center justify-center shadow-sm ${
+                 input.trim() && !isLoading ? 'bg-orange-500' : 'bg-gray-200'
+              }`}
             >
-              <Sparkles size={14} color="#fff" />
-              <Text className="text-white font-bold text-sm ml-1">Go</Text>
+              <Sparkles size={18} color="white" />
             </TouchableOpacity>
           </View>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
-};
-
-export default AITutor;
+}

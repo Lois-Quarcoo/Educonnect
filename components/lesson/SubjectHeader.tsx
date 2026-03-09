@@ -6,11 +6,12 @@ import { router } from 'expo-router';
 interface SubjectHeaderProps {
   title: string;
   progress: number;
+  color: string;
 }
 
-export default function SubjectHeader({ title, progress }: SubjectHeaderProps) {
+export default function SubjectHeader({ title, progress, color }: SubjectHeaderProps) {
   return (
-    <View className="bg-[#6B4EFF] pt-14 pb-6 px-6 rounded-b-[32px] shadow-lg">
+    <View className="pt-14 pb-6 px-6 rounded-b-[32px] shadow-lg" style={{ backgroundColor: color }}>
       {/* Top Header */}
       <View className="flex-row items-center justify-between mb-8">
         <TouchableOpacity

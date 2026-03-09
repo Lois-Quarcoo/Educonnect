@@ -4,16 +4,17 @@ import { Sparkles } from 'lucide-react-native';
 
 interface FloatingAIButtonProps {
   subjectName: string;
+  color: string;
   onPress: () => void;
 }
 
-export default function FloatingAIButton({ subjectName, onPress }: FloatingAIButtonProps) {
+export default function FloatingAIButton({ subjectName, color, onPress }: FloatingAIButtonProps) {
   return (
     <TouchableOpacity
       onPress={onPress}
       activeOpacity={0.8}
-      className="absolute bottom-6 right-6 flex-row items-center bg-[#6B4EFF] py-3 px-5 rounded-full shadow-lg"
-      style={styles.shadow}
+      className="absolute bottom-6 right-6 flex-row items-center py-3 px-5 rounded-full shadow-lg"
+      style={[styles.shadow, { backgroundColor: color, shadowColor: color }]}
     >
       <View className="bg-white/20 p-1 rounded-full mr-2">
         <Sparkles size={16} color="white" />
