@@ -1,50 +1,69 @@
-import { router, Link } from 'expo-router';
-import { UserPlus, ChevronLeft, Mail, Lock, Eye, EyeOff, User } from 'lucide-react-native';
-import React, { useState, useRef } from 'react';
+import { useAuth } from "@/hooks/useAuth";
+import { Link, router } from "expo-router";
 import {
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  Pressable,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useAuth } from '@/hooks/useAuth';
+    ChevronLeft,
+    Eye,
+    EyeOff,
+    Lock,
+    Mail,
+    User,
+    UserPlus,
+} from "lucide-react-native";
+import React, { useRef, useState } from "react";
+import {
+    ActivityIndicator,
+    KeyboardAvoidingView,
+    Platform,
+    Pressable,
+    ScrollView,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const Signup = () => {
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
   const emailRef = useRef<TextInput>(null);
   const passwordRef = useRef<TextInput>(null);
 
-  const { signUp, loading, error, clearError } = useAuth();
+  const { signup, loading, error, clearError } = useAuth();
 
   const handleSignup = async () => {
-    const success = await signUp(name, email, password);
-    if (success) {
-      router.replace('/(tabs)/home');
+    try {
+      await signup(name, email, password);
+      router.replace("/(tabs)/home");
+    } catch (error) {
+      console.error("Signup error:", error);
     }
   };
 
-  const handleNameChange = (text: string) => { setName(text); if (error) clearError(); };
-  const handleEmailChange = (text: string) => { setEmail(text); if (error) clearError(); };
-  const handlePasswordChange = (text: string) => { setPassword(text); if (error) clearError(); };
+  const handleNameChange = (text: string) => {
+    setName(text);
+    if (error) clearError();
+  };
+  const handleEmailChange = (text: string) => {
+    setEmail(text);
+    if (error) clearError();
+  };
+  const handlePasswordChange = (text: string) => {
+    setPassword(text);
+    if (error) clearError();
+  };
 
-  const nameHasError = error?.field === 'name';
-  const emailHasError = error?.field === 'email';
-  const passwordHasError = error?.field === 'password';
+  const nameHasError = error?.field === "name";
+  const emailHasError = error?.field === "email";
+  const passwordHasError = error?.field === "password";
 
   return (
     <KeyboardAvoidingView
       className="flex-1"
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <ScrollView
         className="flex-1 bg-[#faf8f5]"
@@ -80,7 +99,7 @@ const Signup = () => {
           </View>
 
           {/* General Error Banner */}
-          {error?.field === 'general' && (
+          {error?.field === "general" && (
             <View className="mt-6 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
               <Text className="text-red-600 text-sm">{error.message}</Text>
             </View>
@@ -91,9 +110,9 @@ const Signup = () => {
             <Text className="text-slate-500 mb-2 font-medium">Full Name</Text>
             <View
               className={`flex-row items-center bg-white p-4 rounded-xl shadow-sm border
-                ${nameHasError ? 'border-red-400' : 'border-transparent'}`}
+                ${nameHasError ? "border-red-400" : "border-transparent"}`}
             >
-              <User size={18} color={nameHasError ? '#f87171' : '#9ca3af'} />
+              <User size={18} color={nameHasError ? "#f87171" : "#9ca3af"} />
               <TextInput
                 className="ml-3 flex-1 text-black"
                 placeholder="Lois Quarcoo"
@@ -108,18 +127,22 @@ const Signup = () => {
               />
             </View>
             {nameHasError && (
-              <Text className="mt-1 text-red-500 text-xs ml-1">{error?.message}</Text>
+              <Text className="mt-1 text-red-500 text-xs ml-1">
+                {error?.message}
+              </Text>
             )}
           </View>
 
           {/* Email */}
           <View className="mt-5">
-            <Text className="text-slate-500 mb-2 font-medium">Email Address</Text>
+            <Text className="text-slate-500 mb-2 font-medium">
+              Email Address
+            </Text>
             <View
               className={`flex-row items-center bg-white p-4 rounded-xl shadow-sm border
-                ${emailHasError ? 'border-red-400' : 'border-transparent'}`}
+                ${emailHasError ? "border-red-400" : "border-transparent"}`}
             >
-              <Mail size={18} color={emailHasError ? '#f87171' : '#9ca3af'} />
+              <Mail size={18} color={emailHasError ? "#f87171" : "#9ca3af"} />
               <TextInput
                 ref={emailRef}
                 className="ml-3 flex-1 text-black"
@@ -137,7 +160,9 @@ const Signup = () => {
               />
             </View>
             {emailHasError && (
-              <Text className="mt-1 text-red-500 text-xs ml-1">{error?.message}</Text>
+              <Text className="mt-1 text-red-500 text-xs ml-1">
+                {error?.message}
+              </Text>
             )}
           </View>
 
@@ -146,9 +171,12 @@ const Signup = () => {
             <Text className="text-slate-500 mb-2 font-medium">Password</Text>
             <View
               className={`flex-row items-center bg-white p-4 rounded-xl shadow-sm border
-                ${passwordHasError ? 'border-red-400' : 'border-transparent'}`}
+                ${passwordHasError ? "border-red-400" : "border-transparent"}`}
             >
-              <Lock size={18} color={passwordHasError ? '#f87171' : '#9ca3af'} />
+              <Lock
+                size={18}
+                color={passwordHasError ? "#f87171" : "#9ca3af"}
+              />
               <TextInput
                 ref={passwordRef}
                 className="ml-3 flex-1 text-black"
@@ -165,43 +193,54 @@ const Signup = () => {
               <Pressable
                 onPress={() => setShowPassword(!showPassword)}
                 hitSlop={8}
-                accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+                accessibilityLabel={
+                  showPassword ? "Hide password" : "Show password"
+                }
               >
-                {showPassword
-                  ? <Eye size={18} color="#9ca3af" />
-                  : <EyeOff size={18} color="#9ca3af" />}
+                {showPassword ? (
+                  <Eye size={18} color="#9ca3af" />
+                ) : (
+                  <EyeOff size={18} color="#9ca3af" />
+                )}
               </Pressable>
             </View>
             {passwordHasError && (
-              <Text className="mt-1 text-red-500 text-xs ml-1">{error?.message}</Text>
-            )}
-            {/* Live password length hint */}
-            {!passwordHasError && password.length > 0 && password.length < 6 && (
-              <Text className="mt-1 text-amber-500 text-xs ml-1">
-                {6 - password.length} more character{6 - password.length !== 1 ? 's' : ''} needed
+              <Text className="mt-1 text-red-500 text-xs ml-1">
+                {error?.message}
               </Text>
             )}
+            {/* Live password length hint */}
+            {!passwordHasError &&
+              password.length > 0 &&
+              password.length < 6 && (
+                <Text className="mt-1 text-amber-500 text-xs ml-1">
+                  {6 - password.length} more character
+                  {6 - password.length !== 1 ? "s" : ""} needed
+                </Text>
+              )}
           </View>
 
           {/* Terms */}
           <Text className="mt-4 text-xs text-slate-400 text-center leading-5">
-            By signing up, you agree to our{' '}
-            <Text className="text-blue-500">Terms of Service</Text>
-            {' '}and{' '}
+            By signing up, you agree to our{" "}
+            <Text className="text-blue-500">Terms of Service</Text> and{" "}
             <Text className="text-blue-500">Privacy Policy</Text>
           </Text>
 
           {/* Sign Up Button */}
           <TouchableOpacity
             className={`mt-6 py-4 rounded-full items-center shadow-sm
-              ${loading ? 'bg-orange-300' : 'bg-orange-400'}`}
+              ${loading ? "bg-orange-300" : "bg-orange-400"}`}
             onPress={handleSignup}
             disabled={loading}
           >
-            {loading
-              ? <ActivityIndicator color="#ffffff" />
-              : <Text className="text-white font-semibold text-lg">Create Account</Text>
-            }
+            {loading ? (
+              <ActivityIndicator color="#ffffff" />
+            ) : (
+              <Text className="text-white font-semibold text-lg">
+                Create Account
+              </Text>
+            )}
           </TouchableOpacity>
 
           {/* Login Link */}
@@ -213,7 +252,6 @@ const Signup = () => {
               </TouchableOpacity>
             </Link>
           </View>
-
         </SafeAreaView>
       </ScrollView>
     </KeyboardAvoidingView>

@@ -1,214 +1,166 @@
-import { delay } from '../utils/helpers';
+// Try different API URLs based on device type
+const getApiUrl = () => {
+  // For development, try different URLs
+  const possibleUrls = [
+    "http://10.0.2.2:5000/api", // Android Emulator (default)
+    "http://10.0.2.15:5000/api", // Alternative Android Emulator
+    "http://192.168.100.228:5000/api", // Your computer's IP (from Expo logs)
+    "http://localhost:5000/api", // iOS Simulator
+  ];
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-
-export type Subject = {
-  id: string;
-  title: string;
-  lessonsCount: number;
-  videosCount: number;
-  quizzesCount: number;
-  progress: number;
-  color: string;
-  iconName: string;
+  return __DEV__ ? possibleUrls[2] : "https://your-production-url.com/api";
 };
 
-export type QuizQuestion = {
-  id: string;
-  text: string;
-  type: 'multiple_choice';
-  options: string[];
-  correctAnswerIndex: number;
+const API_URL = getApiUrl();
+
+// For different environments:
+// - iOS Simulator: http://localhost:5000/api
+// - Android Emulator: http://10.0.2.2:5000/api
+// - Physical Device: http://YOUR_COMPUTER_IP:5000/api
+
+// Global token storage (temporary solution)
+let globalToken: string | null = null;
+
+// Helper to get stored JWT token
+const getAuthToken = async () => {
+  // TODO: Get from AsyncStorage when installed
+  // const token = await AsyncStorage.getItem('authToken');
+  // if (!token) throw new Error('Not authenticated');
+  // return token;
+
+  // For now, use global token
+  return globalToken;
 };
 
-export type Quiz = {
-  id: string;
-  subjectId: string;
-  title: string;
-  difficulty: 'Easy' | 'Medium' | 'Hard';
-  timeLimitMins: number | null;
-  questions: QuizQuestion[];
+// Helper to set JWT token
+export const setAuthToken = (token: string) => {
+  globalToken = token;
 };
 
-export type VideoLesson = {
-  id: string;
-  subjectId: string;
-  title: string;
-  duration: string;
-  thumbnailUrl: string;
-  videoUrl: string;
+// Helper to make authenticated API calls
+const authenticatedRequest = async (
+  endpoint: string,
+  options: RequestInit = {},
+) => {
+  const token = await getAuthToken();
+
+  const response = await fetch(`${API_URL}${endpoint}`, {
+    ...options,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+  const data = await response.json();
+
+  if (!data.success) {
+    throw new Error(data.message);
+  }
+
+  return data.data;
 };
 
-// ── Mock Data ─────────────────────────────────────────────────────────────────
+// Helper to make public API calls
+const publicRequest = async (endpoint: string, options: RequestInit = {}) => {
+  // Add timeout to prevent hanging
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
 
-const MOCK_SUBJECTS: Subject[] = [
-  {
-    id: 'math',
-    title: 'Mathematics',
-    lessonsCount: 18,
-    videosCount: 12,
-    quizzesCount: 6,
-    progress: 64,
-    color: '#7C3AED',
-    iconName: 'Calculator',
-  },
-  {
-    id: 'science',
-    title: 'Science',
-    lessonsCount: 14,
-    videosCount: 8,
-    quizzesCount: 4,
-    progress: 42,
-    color: '#3B82F6',
-    iconName: 'Atom',
-  },
-  {
-    id: 'english',
-    title: 'English',
-    lessonsCount: 22,
-    videosCount: 5,
-    quizzesCount: 10,
-    progress: 85,
-    color: '#EA580C',
-    iconName: 'BookOpen',
-  },
-  {
-    id: 'history',
-    title: 'History',
-    lessonsCount: 10,
-    videosCount: 15,
-    quizzesCount: 2,
-    progress: 15,
-    color: '#92400E',
-    iconName: 'Landmark',
-  },
-];
-
-const MOCK_QUIZZES: Quiz[] = [
-  {
-    id: 'algebra_fundamentals',
-    subjectId: 'math',
-    title: 'Algebra Fundamentals',
-    difficulty: 'Medium',
-    timeLimitMins: 20,
-    questions: [
-      {
-        id: 'q1',
-        text: 'Solve for x: 3x + 5 = 14',
-        type: 'multiple_choice',
-        options: ['x = 2', 'x = 3', 'x = 4', 'x = 5'],
-        correctAnswerIndex: 1,
+  try {
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      ...options,
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        ...options.headers,
       },
-      {
-        id: 'q2',
-        text: 'What is the expanded form of (x + 2)(x - 3)?',
-        type: 'multiple_choice',
-        options: ['x² - x - 6', 'x² + x - 6', 'x² - 5x - 6', 'x² - x + 6'],
-        correctAnswerIndex: 0,
-      },
-      {
-        id: 'q3',
-        text: 'Solve for x: 2(x - 4) + 6 = 10',
-        type: 'multiple_choice',
-        options: ['x = 4', 'x = 5', 'x = 6', 'x = 8'],
-        correctAnswerIndex: 2,
-      },
-    ],
-  },
-  {
-    id: 'graphing_functions',
-    subjectId: 'math',
-    title: 'Graphing Functions',
-    difficulty: 'Easy',
-    timeLimitMins: 15,
-    questions: [
-      {
-        id: 'q1',
-        text: 'What is the y-intercept of the line y = 2x + 4?',
-        type: 'multiple_choice',
-        options: ['2', '4', '-2', '-4'],
-        correctAnswerIndex: 1,
-      },
-      {
-        id: 'q2',
-        text: 'What is the slope of a horizontal line?',
-        type: 'multiple_choice',
-        options: ['1', '0', 'Undefined', '-1'],
-        correctAnswerIndex: 1,
-      },
-    ],
-  },
-  {
-    id: 'cell_biology',
-    subjectId: 'science',
-    title: 'Cell Biology 101',
-    difficulty: 'Medium',
-    timeLimitMins: 10,
-    questions: [
-      {
-        id: 'q1',
-        text: 'Which organelle is known as the powerhouse of the cell?',
-        type: 'multiple_choice',
-        options: ['Nucleus', 'Mitochondria', 'Ribosome', 'Endoplasmic Reticulum'],
-        correctAnswerIndex: 1,
-      },
-    ],
-  },
-];
+    });
 
-const MOCK_VIDEOS: VideoLesson[] = [
-  {
-    id: 'math_vid_1',
-    subjectId: 'math',
-    title: 'Introduction to Linear Equations',
-    duration: '12:45',
-    thumbnailUrl: 'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?q=80&w=600&auto=format&fit=crop',
-    videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4', // placeholder open video
-  },
-  {
-    id: 'math_vid_2',
-    subjectId: 'math',
-    title: 'Understanding Slope-Intercept Form',
-    duration: '08:20',
-    thumbnailUrl: 'https://images.unsplash.com/photo-1596495578065-6e0763fa1178?q=80&w=600&auto=format&fit=crop',
-    videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
-  },
-  {
-    id: 'sci_vid_1',
-    subjectId: 'science',
-    title: 'The Cell Cycle and Mitosis',
-    duration: '15:30',
-    thumbnailUrl: 'https://images.unsplash.com/photo-1532094349884-543bc11b234d?q=80&w=600&auto=format&fit=crop',
-    videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
-  },
-];
+    clearTimeout(timeoutId);
 
-// ── Service API Functions ─────────────────────────────────────────────────────
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
 
-// Add artificial delay to simulate network latency
-const SIMULATED_DELAY = 600;
+    const data = await response.json();
 
-export const fetchSubjects = async (): Promise<Subject[]> => {
-  await delay(SIMULATED_DELAY);
-  return MOCK_SUBJECTS;
+    if (!data.success) {
+      throw new Error(data.message);
+    }
+
+    return data.data;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error("Request timed out. Please check your connection.");
+    }
+    throw error;
+  }
 };
 
-export const fetchSubjectById = async (id: string): Promise<Subject | undefined> => {
-  await delay(SIMULATED_DELAY);
-  return MOCK_SUBJECTS.find((s) => s.id === id);
+export const authAPI = {
+  // Register new user
+  register: async (name: string, email: string, password: string) => {
+    console.log("API: Registering user", email);
+    console.log("API: Using URL:", API_URL);
+
+    try {
+      const result = await publicRequest("/auth/register", {
+        method: "POST",
+        body: JSON.stringify({ name, email, password }),
+      });
+      console.log("API: Registration successful", result);
+      return result;
+    } catch (error) {
+      console.error("API: Registration failed", error);
+      throw error;
+    }
+  },
+
+  // Login user
+  login: async (email: string, password: string) => {
+    console.log("API: Logging in user", email);
+
+    try {
+      const result = await publicRequest("/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ email, password }),
+      });
+      console.log("API: Login successful", result);
+      return result;
+    } catch (error) {
+      console.error("API: Login failed", error);
+      throw error;
+    }
+  },
+
+  // Get current user profile
+  getProfile: async () => {
+    return authenticatedRequest("/auth/me");
+  },
 };
 
-export const fetchQuizzesBySubject = async (subjectId: string): Promise<Quiz[]> => {
-  await delay(SIMULATED_DELAY);
-  return MOCK_QUIZZES.filter((q) => q.subjectId === subjectId);
-};
+export const userAPI = {
+  // Get current user profile from MongoDB
+  getProfile: async () => {
+    return authenticatedRequest("/user/me");
+  },
 
-export const fetchQuizById = async (quizId: string): Promise<Quiz | undefined> => {
-  await delay(SIMULATED_DELAY);
-  return MOCK_QUIZZES.find((q) => q.id === quizId);
-};
+  // Update user profile
+  updateProfile: async (updates: any) => {
+    return authenticatedRequest("/user/me", {
+      method: "PUT",
+      body: JSON.stringify(updates),
+    });
+  },
 
-export const fetchVideosBySubject = async (subjectId: string): Promise<VideoLesson[]> => {
-  await delay(SIMULATED_DELAY);
-  return MOCK_VIDEOS.filter((v) => v.subjectId === subjectId);
+  // Update user stats
+  updateStats: async (stats: any) => {
+    return authenticatedRequest("/user/stats", {
+      method: "PUT",
+      body: JSON.stringify(stats),
+    });
+  },
 };

@@ -1,22 +1,22 @@
-import { View, Text, TouchableOpacity, Image, ScrollView } from 'react-native'
+import { useAuth } from "@/hooks/useAuth";
 import { router } from "expo-router";
-import React, { useState } from 'react'
-import Image1 from '../../assets/images/image1.jpg';
-import { SafeAreaView } from 'react-native-safe-area-context'
 import {
-  Camera,
-  Pencil,
-  Clock,
-  Flame,
-  BarChart2,
-  FolderOpen,
-  Bell,
-  Download,
-  Settings,
-  HelpCircle,
-  LogOut,
-  ChevronRight,
+    BarChart2,
+    Bell,
+    Camera,
+    ChevronRight,
+    Clock,
+    Download,
+    Flame,
+    FolderOpen,
+    HelpCircle,
+    LogOut,
+    Pencil,
+    Settings,
 } from "lucide-react-native";
+import React from "react";
+import { Image, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 // ── Stat Card ─────────────────────────────────────────────────────────────────
 const StatCard = ({
@@ -28,7 +28,10 @@ const StatCard = ({
   value: string;
   label: string;
 }) => (
-  <View className="bg-white rounded-2xl items-center justify-center py-5 shadow-sm" style={{ width: '30%' }}>
+  <View
+    className="bg-white rounded-2xl items-center justify-center py-5 shadow-sm"
+    style={{ width: "30%" }}
+  >
     {icon}
     <Text className="text-gray-900 font-bold text-lg mt-2">{value}</Text>
     <Text className="text-gray-400 text-xs mt-0.5 text-center">{label}</Text>
@@ -42,7 +45,7 @@ const MenuRow = ({
   title,
   subtitle,
   onPress,
-  titleColor = 'text-gray-900',
+  titleColor = "text-gray-900",
   isLast = false,
 }: {
   icon: React.ReactNode;
@@ -79,10 +82,19 @@ const MenuRow = ({
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 const Profile = () => {
-  const logout = () => router.replace('/(auth)/login');
+  const { user } = useAuth();
+  const logout = () => router.replace("/(auth)/login");
+
+  if (!user) {
+    return (
+      <SafeAreaView className="flex-1 bg-gray-100 justify-center items-center">
+        <Text className="text-gray-500">Loading user data...</Text>
+      </SafeAreaView>
+    );
+  }
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-100" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-gray-100" edges={["top"]}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 100 }}
@@ -91,11 +103,17 @@ const Profile = () => {
         <View className="bg-white px-5 pt-6 pb-8 items-center">
           {/* Avatar */}
           <View className="relative mb-4">
-            <Image
-              source={Image1}
-              className="w-24 h-24 rounded-full"
-              style={{ borderWidth: 3, borderColor: '#E5E7EB' }}
-            />
+            {user.avatar ? (
+              <Image
+                source={{ uri: user.avatar }}
+                className="w-24 h-24 rounded-full"
+                style={{ borderWidth: 3, borderColor: "#E5E7EB" }}
+              />
+            ) : (
+              <View className="w-24 h-24 rounded-full bg-gray-300 items-center justify-center">
+                <Text className="text-gray-500 text-lg">No Avatar</Text>
+              </View>
+            )}
             <View className="absolute bottom-0 right-0 bg-purple-600 rounded-full w-7 h-7 items-center justify-center border-2 border-white">
               <Camera size={13} color="white" />
             </View>
@@ -103,14 +121,18 @@ const Profile = () => {
 
           {/* Name */}
           <View className="flex-row items-center">
-            <Text className="font-bold text-2xl text-gray-900 mr-1">Sarah Jenkins</Text>
+            <Text className="font-bold text-2xl text-gray-900 mr-1">
+              {user.name}
+            </Text>
             <TouchableOpacity hitSlop={8}>
               <Pencil size={15} color="#7C3AED" />
             </TouchableOpacity>
           </View>
 
           {/* Joined */}
-          <Text className="text-gray-400 text-sm mt-1">Joined September 2023</Text>
+          <Text className="text-gray-400 text-sm mt-1">
+            Joined {new Date(user.createdAt).toLocaleDateString()}
+          </Text>
         </View>
 
         {/* ── Stats Row ── */}
@@ -122,20 +144,24 @@ const Profile = () => {
           >
             <StatCard
               icon={<Clock size={20} color="#7C3AED" />}
-              value="24h 30m"
+              value={`${Math.floor(user.totalLearningTime / 60)}h ${user.totalLearningTime % 60}m`}
               label="Learning Time"
             />
             <StatCard
               icon={<Flame size={20} color="#F97316" />}
-              value="12 days 🔥"
+              value={`${user.streak} days 🔥`}
               label="Streak"
             />
             <StatCard
-              icon={<View className="w-5 h-5 bg-blue-100 rounded items-center justify-center">
-                <Text className="text-blue-600 text-xs font-bold">8</Text>
-              </View>}
-              value="8"
-              label="Completed"
+              icon={
+                <View className="w-5 h-5 bg-blue-100 rounded items-center justify-center">
+                  <Text className="text-blue-600 text-xs font-bold">
+                    {user.quizzesCompleted}
+                  </Text>
+                </View>
+              }
+              value={`${user.quizzesCompleted} completed`}
+              label="Quizzes"
             />
           </ScrollView>
         </View>
