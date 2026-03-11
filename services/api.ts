@@ -1,23 +1,17 @@
 import Constants from "expo-constants";
 
 // ── API URL ──────────────────────────────────────────────────────────────────
-// In development, point to your machine's local IP.
-// On Android emulator use 10.0.2.2; on a physical device use your LAN IP.
-// Set EXPO_PUBLIC_API_URL in your .env for easy configuration.
 const getApiUrl = (): string => {
-  // 1. Prefer explicit env var
   const envUrl = process.env.EXPO_PUBLIC_API_URL;
   if (envUrl) return envUrl;
 
-  // 2. Try to derive host from Expo's debugger host (works for physical devices)
   const debuggerHost = Constants.expoConfig?.hostUri?.split(":")[0];
   if (debuggerHost && __DEV__) {
     return `http://${debuggerHost}:5000/api`;
   }
 
-  // 3. Fallback defaults
   if (__DEV__) {
-    return "http://192.168.100.228:5000/api"; // ← replace with your LAN IP
+    return "http://localhost:5000/api";
   }
   return "https://your-production-url.com/api";
 };
@@ -27,8 +21,9 @@ export const API_URL = getApiUrl();
 // ── Auth token storage ───────────────────────────────────────────────────────
 let globalToken: string | null = null;
 
-export const setAuthToken = (token: string) => {
-  globalToken = token;
+// FIX: accept null so logout properly clears the token
+export const setAuthToken = (token: string | null) => {
+  globalToken = token || null;
 };
 
 // ── Request helpers ──────────────────────────────────────────────────────────
@@ -37,9 +32,7 @@ const publicRequest = async (endpoint: string, options: RequestInit = {}) => {
   const timeoutId = setTimeout(() => controller.abort(), 10_000);
 
   try {
-    console.log(
-      `API [public] ${options.method ?? "GET"} ${API_URL}${endpoint}`,
-    );
+    console.log(`API [public] ${options.method ?? "GET"} ${API_URL}${endpoint}`);
 
     const response = await fetch(`${API_URL}${endpoint}`, {
       ...options,
@@ -95,7 +88,7 @@ export const authAPI = {
     name: string,
     email: string,
     password: string,
-    avatar?: string,
+    avatar?: string | null,
   ) => {
     return publicRequest("/auth/register", {
       method: "POST",
@@ -130,9 +123,7 @@ export const userAPI = {
     }),
 };
 
-// ── Subject / Quiz / Video types & mock data ─────────────────────────────────
-// Replace the mock fetchers with real API calls once backend routes exist.
-
+// ── Subject / Quiz / Video types ─────────────────────────────────────────────
 export interface Subject {
   id: string;
   title: string;
@@ -313,76 +304,37 @@ const QUIZZES: Quiz[] = [
 ];
 
 const VIDEOS: VideoLesson[] = [
-  {
-    id: "v1",
-    subjectId: "math",
-    title: "Introduction to Algebra",
-    duration: "12:34",
-  },
-  {
-    id: "v2",
-    subjectId: "math",
-    title: "Solving Linear Equations",
-    duration: "18:22",
-  },
-  {
-    id: "v3",
-    subjectId: "science",
-    title: "What is Photosynthesis?",
-    duration: "10:05",
-  },
-  {
-    id: "v4",
-    subjectId: "english",
-    title: "Punctuation Made Easy",
-    duration: "08:47",
-  },
+  { id: "v1", subjectId: "math", title: "Introduction to Algebra", duration: "12:34" },
+  { id: "v2", subjectId: "math", title: "Solving Linear Equations", duration: "18:22" },
+  { id: "v3", subjectId: "science", title: "What is Photosynthesis?", duration: "10:05" },
+  { id: "v4", subjectId: "english", title: "Punctuation Made Easy", duration: "08:47" },
 ];
 
 // ── Subject fetchers ─────────────────────────────────────────────────────────
 export const fetchSubjects = async (): Promise<Subject[]> => {
-  // TODO: return authenticatedRequest("/subjects");
   return new Promise((resolve) => setTimeout(() => resolve(SUBJECTS), 400));
 };
 
-export const fetchSubjectById = async (
-  id: string,
-): Promise<Subject | undefined> => {
-  // TODO: return authenticatedRequest(`/subjects/${id}`);
+export const fetchSubjectById = async (id: string): Promise<Subject | undefined> => {
   return new Promise((resolve) =>
     setTimeout(() => resolve(SUBJECTS.find((s) => s.id === id)), 300),
   );
 };
 
-export const fetchQuizzesBySubject = async (
-  subjectId: string,
-): Promise<Quiz[]> => {
-  // TODO: return authenticatedRequest(`/quizzes?subjectId=${subjectId}`);
+export const fetchQuizzesBySubject = async (subjectId: string): Promise<Quiz[]> => {
   return new Promise((resolve) =>
-    setTimeout(
-      () => resolve(QUIZZES.filter((q) => q.subjectId === subjectId)),
-      300,
-    ),
+    setTimeout(() => resolve(QUIZZES.filter((q) => q.subjectId === subjectId)), 300),
   );
 };
 
-export const fetchQuizById = async (
-  quizId: string,
-): Promise<Quiz | undefined> => {
-  // TODO: return authenticatedRequest(`/quizzes/${quizId}`);
+export const fetchQuizById = async (quizId: string): Promise<Quiz | undefined> => {
   return new Promise((resolve) =>
     setTimeout(() => resolve(QUIZZES.find((q) => q.id === quizId)), 300),
   );
 };
 
-export const fetchVideosBySubject = async (
-  subjectId: string,
-): Promise<VideoLesson[]> => {
-  // TODO: return authenticatedRequest(`/videos?subjectId=${subjectId}`);
+export const fetchVideosBySubject = async (subjectId: string): Promise<VideoLesson[]> => {
   return new Promise((resolve) =>
-    setTimeout(
-      () => resolve(VIDEOS.filter((v) => v.subjectId === subjectId)),
-      300,
-    ),
+    setTimeout(() => resolve(VIDEOS.filter((v) => v.subjectId === subjectId)), 300),
   );
 };

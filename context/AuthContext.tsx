@@ -1,4 +1,3 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { authAPI, setAuthToken, userAPI } from "../services/api";
 
@@ -65,25 +64,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [error, setError] = useState<AuthError | null>(null);
 
   useEffect(() => {
-    // Restore session from storage
-    const restoreSession = async () => {
-      try {
-        const storedToken = await AsyncStorage.getItem("auth_token");
-        const storedUser = await AsyncStorage.getItem("auth_user");
-
-        if (storedToken && storedUser) {
-          const user = JSON.parse(storedUser);
-          setAuthToken(storedToken);
-          setUser(user);
-        }
-      } catch (error) {
-        console.error("Failed to restore session:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    restoreSession();
+    setLoading(false);
   }, []);
 
   const clearError = () => setError(null);
@@ -91,28 +72,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // ── LOGIN ─────────────────────────────────────────────────────────────────
   const login = async (email: string, password: string) => {
     clearError();
+
     if (!email.trim()) {
       const e: AuthError = { field: "email", message: "Email is required." };
       setError(e);
       throw new Error(e.message);
     }
     if (!password) {
-      const e: AuthError = {
-        field: "password",
-        message: "Password is required.",
-      };
+      const e: AuthError = { field: "password", message: "Password is required." };
       setError(e);
       throw new Error(e.message);
     }
+
     try {
       const userData = await authAPI.login(email, password);
       if (userData.token) {
         setAuthToken(userData.token);
         setUser(userData);
-
-        // Save session to storage
-        await AsyncStorage.setItem("auth_token", userData.token);
-        await AsyncStorage.setItem("auth_user", JSON.stringify(userData));
       }
     } catch (err: any) {
       setError(parseServerError(err.message || "Login failed."));
@@ -129,11 +105,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   ) => {
     clearError();
 
-    // Client-side validation — runs BEFORE any network call
     if (!name.trim()) {
       const e: AuthError = { field: "name", message: "Full name is required." };
       setError(e);
-      throw new Error(e.message); // ← re-throw stops handleSignup from navigating
+      throw new Error(e.message);
     }
     if (!email.trim() || !email.includes("@")) {
       const e: AuthError = {
@@ -150,48 +125,29 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         message: `Password needs ${remaining} more character${remaining !== 1 ? "s" : ""}.`,
       };
       setError(e);
-      throw new Error(e.message); // ← THIS is what was missing in the old file
+      throw new Error(e.message);
     }
 
-    // Network call
     console.log("[Auth] signup →", email);
     try {
-      const userData = await authAPI.register(
-        name,
-        email,
-        password,
-        profileImage,
-      );
+      const userData = await authAPI.register(name, email, password, profileImage);
       console.log("[Auth] signup OK, _id:", userData._id);
       if (userData.token) {
         setAuthToken(userData.token);
         setUser(userData);
-
-        // Save session to storage
-        await AsyncStorage.setItem("auth_token", userData.token);
-        await AsyncStorage.setItem("auth_user", JSON.stringify(userData));
       }
-      // setUser triggers _layout.tsx auth guard → navigates to home automatically
     } catch (err: any) {
       setError(parseServerError(err.message || "Registration failed."));
-      throw err; // ← re-throw so handleSignup's catch runs instead of router.replace
+      throw err;
     }
   };
 
   // ── LOGOUT ────────────────────────────────────────────────────────────────
   const logout = async () => {
-    try {
-      // Clear session from storage
-      await AsyncStorage.removeItem("auth_token");
-      await AsyncStorage.removeItem("auth_user");
-
-      // Clear app state
-      setAuthToken(null);
-      setUser(null);
-      clearError();
-    } catch (error) {
-      console.error("Failed to clear session:", error);
-    }
+    // FIX: use null (not "") so globalToken is properly cleared
+    setAuthToken(null);
+    setUser(null);
+    clearError();
   };
 
   // ── REFRESH ───────────────────────────────────────────────────────────────

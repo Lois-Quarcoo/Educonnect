@@ -16,35 +16,33 @@ exports.register = async (req, res) => {
     console.log("Registration request body:", req.body);
     const { name, email, password, avatar } = req.body;
 
-    // Check if user exists
-    const userExists = await User.findOne({ email });
-    if (userExists) {
+    // Basic validation
+    if (!name || !email || !password) {
       return res.status(400).json({
         success: false,
-        message: "User already exists",
+        message: "Name, email, and password are required.",
       });
     }
 
-    // Create user object with avatar
-    const userData = {
+    // Check if user exists (case-insensitive)
+    const userExists = await User.findOne({ email: email.toLowerCase() });
+    if (userExists) {
+      return res.status(400).json({
+        success: false,
+        message: "An account with this email already exists.",
+      });
+    }
+
+    // Create user (password hashing handled by pre-save hook in model)
+    const user = await User.create({
       name,
-      email,
+      email: email.toLowerCase(),
       password,
-      avatar: avatar || "https://via.placeholder.com/150", // Default avatar if none provided
-    };
-
-    console.log("Creating user with data:", {
-      name,
-      email,
-      avatar: userData.avatar,
+      avatar: avatar || "https://via.placeholder.com/150",
     });
-
-    // Create user
-    const user = await User.create(userData);
 
     console.log("User created successfully:", user._id);
 
-    // Generate token
     const token = generateToken(user._id);
 
     res.status(201).json({
@@ -59,12 +57,22 @@ exports.register = async (req, res) => {
         quizzesCompleted: user.quizzesCompleted,
         videosWatched: user.videosWatched,
         preferences: user.preferences,
+        createdAt: user.createdAt,
         token,
       },
     });
   } catch (error) {
     console.error("Registration error:", error);
-    res.status(400).json({
+
+    // Catch MongoDB duplicate key error as a safety net
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: "An account with this email already exists.",
+      });
+    }
+
+    res.status(500).json({
       success: false,
       message: error.message,
     });
@@ -78,8 +86,15 @@ exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Check for user
-    const user = await User.findOne({ email }).select("+password");
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Email and password are required.",
+      });
+    }
+
+    // Find user by email (case-insensitive), include password for comparison
+    const user = await User.findOne({ email: email.toLowerCase() }).select("+password");
     if (!user) {
       return res.status(401).json({
         success: false,
@@ -87,7 +102,7 @@ exports.login = async (req, res) => {
       });
     }
 
-    // Check if password matches
+    // Compare password using model method
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
       return res.status(401).json({
@@ -96,7 +111,6 @@ exports.login = async (req, res) => {
       });
     }
 
-    // Generate token
     const token = generateToken(user._id);
 
     res.json({
@@ -111,11 +125,13 @@ exports.login = async (req, res) => {
         quizzesCompleted: user.quizzesCompleted,
         videosWatched: user.videosWatched,
         preferences: user.preferences,
+        createdAt: user.createdAt,
         token,
       },
     });
   } catch (error) {
-    res.status(400).json({
+    console.error("Login error:", error);
+    res.status(500).json({
       success: false,
       message: error.message,
     });

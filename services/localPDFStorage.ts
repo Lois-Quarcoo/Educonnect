@@ -31,40 +31,26 @@ export class LocalPDFStorage {
 
       const asset = result.assets[0];
 
-      // Generate unique filename
+      // Generate unique ID and document
       const timestamp = Date.now();
-      const fileName = `${timestamp}_${asset.name}`;
-      const documentDir = FileSystem.documentDirectory || "";
-      const localUri = `${documentDir}${this.STORAGE_DIR}${fileName}`;
-
-      // Initialize storage directory
-      await this.initializeStorage();
-
-      // Copy file to local storage
-      await FileSystem.copyAsync({
-        from: asset.uri,
-        to: localUri,
-      });
-
+      
       // Ask user for subject if not provided
       let selectedSubject = subject;
       if (!selectedSubject) {
-        // For now, you can implement a simple prompt
-        // In a real app, you'd show a modal with subject options
         selectedSubject = "General";
       }
 
-      // Create PDF document metadata
+      // Create PDF document metadata (using the original URI)
       const pdfDoc: PDFDocument = {
         id: `pdf_${timestamp}`,
         name: asset.name,
-        uri: localUri,
+        uri: asset.uri, // Use the original URI from document picker
         size: asset.size || 0,
         uploadDate: new Date().toISOString(),
         subject: selectedSubject,
       };
 
-      // Save metadata
+      // Save metadata to AsyncStorage
       await this.saveMetadata(pdfDoc);
 
       return pdfDoc;
@@ -80,11 +66,8 @@ export class LocalPDFStorage {
    */
   static async getAllPDFs(): Promise<PDFDocument[]> {
     try {
-      const stored = await this.getFromLocalStorage();
-      return stored.sort(
-        (a, b) =>
-          new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime(),
-      );
+      const stored = await this.getStoredPDFs();
+      return stored.sort((a, b) => new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime());
     } catch (error) {
       console.error("Failed to get PDFs:", error);
       return [];
@@ -97,7 +80,7 @@ export class LocalPDFStorage {
   static async getPDFsBySubject(subject: string): Promise<PDFDocument[]> {
     try {
       const allPDFs = await this.getAllPDFs();
-      return allPDFs.filter((pdf) => pdf.subject === subject);
+      return allPDFs.filter(pdf => pdf.subject === subject || (subject === 'All' && pdf));
     } catch (error) {
       console.error("Failed to get PDFs by subject:", error);
       return [];
@@ -105,15 +88,18 @@ export class LocalPDFStorage {
   }
 
   /**
-   * Get all available subjects
+   * Get available subjects
    */
   static async getAvailableSubjects(): Promise<string[]> {
     try {
-      const allPDFs = await this.getAllPDFs();
-      const subjects = new Set(
-        allPDFs.map((pdf) => pdf.subject).filter(Boolean),
-      );
-      return Array.from(subjects);
+      const pdfs = await this.getAllPDFs();
+      const subjects = new Set<string>();
+      pdfs.forEach(pdf => {
+        if (pdf.subject) {
+          subjects.add(pdf.subject);
+        }
+      });
+      return Array.from(subjects).sort();
     } catch (error) {
       console.error("Failed to get available subjects:", error);
       return [];
@@ -121,27 +107,18 @@ export class LocalPDFStorage {
   }
 
   /**
-   * Get PDF by ID
-   */
-  static async getPDFById(id: string): Promise<PDFDocument | null> {
-    try {
-      const pdfs = await this.getAllPDFs();
-      return pdfs.find((pdf) => pdf.id === id) || null;
-    } catch (error) {
-      console.error("Failed to get PDF by ID:", error);
-      return null;
-    }
-  }
-
-  /**
-   * Delete a PDF from local storage
+   * Delete a PDF by ID
    */
   static async deletePDF(id: string): Promise<boolean> {
     try {
-      const pdfs = await this.getAllPDFs();
-      const updatedPDFs = pdfs.filter((pdf) => pdf.id !== id);
+      const stored = await this.getStoredPDFs();
+      const updated = stored.filter(pdf => pdf.id !== id);
+      
+      if (updated.length === stored.length) {
+        return false; // PDF not found
+      }
 
-      await this.saveToLocalStorageArray(updatedPDFs);
+      await this.saveAllPDFs(updated);
       return true;
     } catch (error) {
       console.error("Failed to delete PDF:", error);
@@ -150,109 +127,85 @@ export class LocalPDFStorage {
   }
 
   /**
-   * Get PDF file content for AI processing
-   */
-  static async getPDFContent(pdfDoc: PDFDocument): Promise<string> {
-    try {
-      // For now, return the URI - the AI service can process it directly
-      // In a real implementation, you'd use a PDF parsing library
-      return pdfDoc.uri;
-    } catch (error) {
-      console.error("Failed to read PDF content:", error);
-      throw new Error("Failed to read PDF content for AI processing");
-    }
-  }
-
-  /**
-   * Get file size in human readable format
+   * Format file size
    */
   static formatFileSize(bytes: number): string {
-    if (bytes === 0) return "0 Bytes";
-
+    if (bytes === 0) return '0 Bytes';
+    
     const k = 1024;
-    const sizes = ["Bytes", "KB", "MB", "GB"];
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
-  }
-
-  /**
-   * Save PDF document to local storage
-   */
-  private static async saveToLocalStorage(pdfDoc: PDFDocument): Promise<void> {
-    try {
-      const pdfs = await this.getAllPDFs();
-      pdfs.push(pdfDoc);
-
-      // Store in AsyncStorage-like format (using simple object for now)
-      const storageData = JSON.stringify(pdfs);
-
-      // For React Native, we'll use a simple approach
-      if (typeof localStorage !== "undefined") {
-        localStorage.setItem(this.STORAGE_KEY, storageData);
-      }
-    } catch (error) {
-      console.error("Failed to save to local storage:", error);
-    }
-  }
-
-  /**
-   * Get PDFs from local storage
-   */
-  private static async getFromLocalStorage(): Promise<PDFDocument[]> {
-    try {
-      if (typeof localStorage !== "undefined") {
-        const stored = localStorage.getItem(this.STORAGE_KEY);
-        return stored ? JSON.parse(stored) : [];
-      }
-      return [];
-    } catch (error) {
-      console.error("Failed to get from local storage:", error);
-      return [];
-    }
-  }
-
-  /**
-   * Save array of PDFs to local storage
-   */
-  private static async saveToLocalStorageArray(
-    pdfs: PDFDocument[],
-  ): Promise<void> {
-    try {
-      const storageData = JSON.stringify(pdfs);
-
-      if (typeof localStorage !== "undefined") {
-        localStorage.setItem(this.STORAGE_KEY, storageData);
-      }
-    } catch (error) {
-      console.error("Failed to save array to local storage:", error);
-    }
+    
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   }
 
   /**
    * Get storage statistics
    */
-  static async getStorageStats(): Promise<{
-    totalPDFs: number;
-    totalSize: number;
-    formattedSize: string;
-  }> {
+  static async getStorageStats(): Promise<{ totalFiles: number; totalSize: number }> {
     try {
       const pdfs = await this.getAllPDFs();
       const totalSize = pdfs.reduce((sum, pdf) => sum + pdf.size, 0);
-
       return {
-        totalPDFs: pdfs.length,
-        totalSize,
-        formattedSize: this.formatFileSize(totalSize),
+        totalFiles: pdfs.length,
+        totalSize
       };
     } catch (error) {
       console.error("Failed to get storage stats:", error);
-      return {
-        totalPDFs: 0,
-        totalSize: 0,
-        formattedSize: "0 Bytes",
-      };
+      return { totalFiles: 0, totalSize: 0 };
     }
+  }
+
+  /**
+   * Get stored PDFs from AsyncStorage
+   */
+  private static async getStoredPDFs(): Promise<PDFDocument[]> {
+    try {
+      // For now, we'll use a simple in-memory storage
+      // In a real app, you'd use AsyncStorage here
+      return this.getInMemoryPDFs();
+    } catch (error) {
+      console.error("Failed to get stored PDFs:", error);
+      return [];
+    }
+  }
+
+  /**
+   * Save metadata for a single PDF
+   */
+  private static async saveMetadata(pdf: PDFDocument): Promise<void> {
+    try {
+      const stored = await this.getStoredPDFs();
+      stored.push(pdf);
+      await this.saveAllPDFs(stored);
+    } catch (error) {
+      console.error("Failed to save metadata:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Save all PDFs to storage
+   */
+  private static async saveAllPDFs(pdfs: PDFDocument[]): Promise<void> {
+    try {
+      // For now, we'll use in-memory storage
+      // In a real app, you'd use AsyncStorage here
+      this.setInMemoryPDFs(pdfs);
+    } catch (error) {
+      console.error("Failed to save all PDFs:", error);
+      throw error;
+    }
+  }
+
+  // Temporary in-memory storage (replace with AsyncStorage in production)
+  private static inMemoryPDFs: PDFDocument[] = [];
+
+  private static getInMemoryPDFs(): PDFDocument[] {
+    return this.inMemoryPDFs;
+  }
+
+  private static setInMemoryPDFs(pdfs: PDFDocument[]): void {
+    this.inMemoryPDFs = pdfs;
   }
 }
