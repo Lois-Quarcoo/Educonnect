@@ -14,7 +14,7 @@ const generateToken = (id) => {
 exports.register = async (req, res) => {
   try {
     console.log("Registration request body:", req.body);
-    const { name, email, password } = req.body;
+    const { name, email, password, avatar } = req.body;
 
     // Check if user exists
     const userExists = await User.findOne({ email });
@@ -25,14 +25,22 @@ exports.register = async (req, res) => {
       });
     }
 
-    console.log("Creating user with data:", { name, email });
-
-    // Create user
-    const user = await User.create({
+    // Create user object with avatar
+    const userData = {
       name,
       email,
       password,
+      avatar: avatar || "https://via.placeholder.com/150", // Default avatar if none provided
+    };
+
+    console.log("Creating user with data:", {
+      name,
+      email,
+      avatar: userData.avatar,
     });
+
+    // Create user
+    const user = await User.create(userData);
 
     console.log("User created successfully:", user._id);
 

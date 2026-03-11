@@ -18,12 +18,22 @@ interface User {
   createdAt: string;
 }
 
+export interface AuthError {
+  field: "name" | "email" | "password" | "general";
+  message: string;
+}
+
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  error: string | null;
+  error: AuthError | null;
   login: (email: string, password: string) => Promise<void>;
-  signup: (name: string, email: string, password: string) => Promise<void>;
+  signup: (
+    name: string,
+    email: string,
+    password: string,
+    profileImage?: string | null,
+  ) => Promise<void>;
   logout: () => Promise<void>;
   refreshUserData: () => Promise<void>;
   clearError: () => void;
@@ -31,98 +41,134 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const parseServerError = (message: string): AuthError => {
+  const lower = message.toLowerCase();
+  if (lower.includes("already exists") || lower.includes("duplicate"))
+    return {
+      field: "email",
+      message: "An account with this email already exists.",
+    };
+  if (lower.includes("password"))
+    return {
+      field: "password",
+      message: "Password must be at least 6 characters.",
+    };
+  if (lower.includes("name"))
+    return { field: "name", message: "Name is required." };
+  return { field: "general", message };
+};
+
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [token, setToken] = useState<string | null>(null);
+  const [error, setError] = useState<AuthError | null>(null);
 
-  // Check for stored token and user data on app start
   useEffect(() => {
-    const loadStoredData = async () => {
-      try {
-        // TODO: Add AsyncStorage back when installed
-        // const token = await AsyncStorage.getItem('authToken');
-        // const userData = await AsyncStorage.getItem('userData');
-
-        // For now, just set loading to false
-        setLoading(false);
-      } catch (error) {
-        console.error("Error loading stored auth data:", error);
-        setLoading(false);
-      }
-    };
-
-    loadStoredData();
+    // Simple session restoration - just set loading to false
+    // Storage persistence can be added later when needed
+    setLoading(false);
   }, []);
 
-  const clearError = () => {
-    setError(null);
-  };
+  const clearError = () => setError(null);
 
-  const storeToken = (newToken: string) => {
-    setToken(newToken);
-    setAuthToken(newToken); // Store in global API service
-    // TODO: Store with AsyncStorage when installed
-    // await AsyncStorage.setItem('authToken', newToken);
-  };
-
+  // ── LOGIN ─────────────────────────────────────────────────────────────────
   const login = async (email: string, password: string) => {
+    clearError();
+    if (!email.trim()) {
+      const e: AuthError = { field: "email", message: "Email is required." };
+      setError(e);
+      throw new Error(e.message);
+    }
+    if (!password) {
+      const e: AuthError = {
+        field: "password",
+        message: "Password is required.",
+      };
+      setError(e);
+      throw new Error(e.message);
+    }
     try {
-      clearError();
       const userData = await authAPI.login(email, password);
-
-      // Store token and user data
       if (userData.token) {
-        storeToken(userData.token);
+        setAuthToken(userData.token);
+        setUser(userData);
+        // Storage persistence can be added later when needed
       }
-      setUser(userData);
-    } catch (error: any) {
-      setError(error.message || "Login failed");
+    } catch (err: any) {
+      setError(parseServerError(err.message || "Login failed."));
+      throw err;
     }
   };
 
-  const signup = async (name: string, email: string, password: string) => {
+  // ── SIGNUP ────────────────────────────────────────────────────────────────
+  const signup = async (
+    name: string,
+    email: string,
+    password: string,
+    profileImage?: string | null,
+  ) => {
+    clearError();
+
+    // Client-side validation — runs BEFORE any network call
+    if (!name.trim()) {
+      const e: AuthError = { field: "name", message: "Full name is required." };
+      setError(e);
+      throw new Error(e.message); // ← re-throw stops handleSignup from navigating
+    }
+    if (!email.trim() || !email.includes("@")) {
+      const e: AuthError = {
+        field: "email",
+        message: "A valid email address is required.",
+      };
+      setError(e);
+      throw new Error(e.message);
+    }
+    if (password.length < 6) {
+      const remaining = 6 - password.length;
+      const e: AuthError = {
+        field: "password",
+        message: `Password needs ${remaining} more character${remaining !== 1 ? "s" : ""}.`,
+      };
+      setError(e);
+      throw new Error(e.message); // ← THIS is what was missing in the old file
+    }
+
+    // Network call
+    console.log("[Auth] signup →", email);
     try {
-      clearError();
-      console.log("Starting signup for:", email);
-
-      const userData = await authAPI.register(name, email, password);
-      console.log("Signup successful:", userData);
-
-      // Store token and user data
+      const userData = await authAPI.register(
+        name,
+        email,
+        password,
+        profileImage,
+      );
+      console.log("[Auth] signup OK, _id:", userData._id);
       if (userData.token) {
-        storeToken(userData.token);
+        setAuthToken(userData.token);
+        setUser(userData);
+        // Storage persistence can be added later when needed
       }
-      setUser(userData);
-    } catch (error: any) {
-      console.error("Signup error:", error);
-      setError(error.message || "Registration failed");
+      // setUser triggers _layout.tsx auth guard → navigates to home automatically
+    } catch (err: any) {
+      setError(parseServerError(err.message || "Registration failed."));
+      throw err; // ← re-throw so handleSignup's catch runs instead of router.replace
     }
   };
 
+  // ── LOGOUT ────────────────────────────────────────────────────────────────
   const logout = async () => {
-    try {
-      // TODO: Clear stored data with AsyncStorage
-      // await AsyncStorage.removeItem('authToken');
-      // await AsyncStorage.removeItem('userData');
-
-      setUser(null);
-    } catch (error: any) {
-      throw new Error(error.message || "Logout failed");
-    }
+    setAuthToken("");
+    setUser(null);
+    // Storage persistence can be added later when needed
   };
 
+  // ── REFRESH ───────────────────────────────────────────────────────────────
   const refreshUserData = async () => {
     try {
       const userData = await userAPI.getProfile();
-
-      // TODO: Update stored user data with AsyncStorage
-      // await AsyncStorage.setItem('userData', JSON.stringify(userData));
-
       setUser(userData);
-    } catch (error) {
-      console.error("Error refreshing user data:", error);
+    } catch (err) {
+      console.error("[Auth] refreshUserData failed:", err);
     }
   };
 
@@ -145,11 +191,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 };
 
 export const useAuth = () => {
-  const context = useContext(AuthContext);
-
-  if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
-
-  return context;
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error("useAuth must be used within an AuthProvider");
+  return ctx;
 };

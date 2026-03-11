@@ -1,53 +1,80 @@
-// Try different API URLs based on device type
-const getApiUrl = () => {
-  // For development, try different URLs
-  const possibleUrls = [
-    "http://10.0.2.2:5000/api", // Android Emulator (default)
-    "http://10.0.2.15:5000/api", // Alternative Android Emulator
-    "http://192.168.100.228:5000/api", // Your computer's IP (from Expo logs)
-    "http://localhost:5000/api", // iOS Simulator
-  ];
+import Constants from "expo-constants";
 
-  return __DEV__ ? possibleUrls[2] : "https://your-production-url.com/api";
+// ── API URL ──────────────────────────────────────────────────────────────────
+// In development, point to your machine's local IP.
+// On Android emulator use 10.0.2.2; on a physical device use your LAN IP.
+// Set EXPO_PUBLIC_API_URL in your .env for easy configuration.
+const getApiUrl = (): string => {
+  // 1. Prefer explicit env var
+  const envUrl = process.env.EXPO_PUBLIC_API_URL;
+  if (envUrl) return envUrl;
+
+  // 2. Try to derive host from Expo's debugger host (works for physical devices)
+  const debuggerHost = Constants.expoConfig?.hostUri?.split(":")[0];
+  if (debuggerHost && __DEV__) {
+    return `http://${debuggerHost}:5000/api`;
+  }
+
+  // 3. Fallback defaults
+  if (__DEV__) {
+    return "http://192.168.100.228:5000/api"; // ← replace with your LAN IP
+  }
+  return "https://your-production-url.com/api";
 };
 
-const API_URL = getApiUrl();
+export const API_URL = getApiUrl();
 
-// For different environments:
-// - iOS Simulator: http://localhost:5000/api
-// - Android Emulator: http://10.0.2.2:5000/api
-// - Physical Device: http://YOUR_COMPUTER_IP:5000/api
-
-// Global token storage (temporary solution)
+// ── Auth token storage ───────────────────────────────────────────────────────
 let globalToken: string | null = null;
 
-// Helper to get stored JWT token
-const getAuthToken = async () => {
-  // TODO: Get from AsyncStorage when installed
-  // const token = await AsyncStorage.getItem('authToken');
-  // if (!token) throw new Error('Not authenticated');
-  // return token;
-
-  // For now, use global token
-  return globalToken;
-};
-
-// Helper to set JWT token
 export const setAuthToken = (token: string) => {
   globalToken = token;
 };
 
-// Helper to make authenticated API calls
+// ── Request helpers ──────────────────────────────────────────────────────────
+const publicRequest = async (endpoint: string, options: RequestInit = {}) => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10_000);
+
+  try {
+    console.log(
+      `API [public] ${options.method ?? "GET"} ${API_URL}${endpoint}`,
+    );
+
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      ...options,
+      signal: controller.signal,
+      headers: { "Content-Type": "application/json", ...options.headers },
+    });
+
+    clearTimeout(timeoutId);
+
+    const data = await response.json();
+
+    if (!response.ok || !data.success) {
+      throw new Error(data.message || `HTTP ${response.status}`);
+    }
+
+    return data.data;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error("Request timed out. Is the backend server running?");
+    }
+    throw error;
+  }
+};
+
 const authenticatedRequest = async (
   endpoint: string,
   options: RequestInit = {},
 ) => {
-  const token = await getAuthToken();
+  if (!globalToken) throw new Error("Not authenticated");
 
   const response = await fetch(`${API_URL}${endpoint}`, {
     ...options,
     headers: {
-      Authorization: `Bearer ${token}`,
+      Authorization: `Bearer ${globalToken}`,
       "Content-Type": "application/json",
       ...options.headers,
     },
@@ -55,112 +82,307 @@ const authenticatedRequest = async (
 
   const data = await response.json();
 
-  if (!data.success) {
-    throw new Error(data.message);
+  if (!response.ok || !data.success) {
+    throw new Error(data.message || `HTTP ${response.status}`);
   }
 
   return data.data;
 };
 
-// Helper to make public API calls
-const publicRequest = async (endpoint: string, options: RequestInit = {}) => {
-  // Add timeout to prevent hanging
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-
-  try {
-    const response = await fetch(`${API_URL}${endpoint}`, {
-      ...options,
-      signal: controller.signal,
-      headers: {
-        "Content-Type": "application/json",
-        ...options.headers,
-      },
-    });
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const data = await response.json();
-
-    if (!data.success) {
-      throw new Error(data.message);
-    }
-
-    return data.data;
-  } catch (error) {
-    clearTimeout(timeoutId);
-    if (error instanceof Error && error.name === "AbortError") {
-      throw new Error("Request timed out. Please check your connection.");
-    }
-    throw error;
-  }
-};
-
+// ── Auth API ─────────────────────────────────────────────────────────────────
 export const authAPI = {
-  // Register new user
-  register: async (name: string, email: string, password: string) => {
-    console.log("API: Registering user", email);
-    console.log("API: Using URL:", API_URL);
-
-    try {
-      const result = await publicRequest("/auth/register", {
-        method: "POST",
-        body: JSON.stringify({ name, email, password }),
-      });
-      console.log("API: Registration successful", result);
-      return result;
-    } catch (error) {
-      console.error("API: Registration failed", error);
-      throw error;
-    }
+  register: async (
+    name: string,
+    email: string,
+    password: string,
+    avatar?: string,
+  ) => {
+    return publicRequest("/auth/register", {
+      method: "POST",
+      body: JSON.stringify({ name, email, password, avatar }),
+    });
   },
 
-  // Login user
   login: async (email: string, password: string) => {
-    console.log("API: Logging in user", email);
-
-    try {
-      const result = await publicRequest("/auth/login", {
-        method: "POST",
-        body: JSON.stringify({ email, password }),
-      });
-      console.log("API: Login successful", result);
-      return result;
-    } catch (error) {
-      console.error("API: Login failed", error);
-      throw error;
-    }
+    return publicRequest("/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email, password }),
+    });
   },
 
-  // Get current user profile
-  getProfile: async () => {
-    return authenticatedRequest("/auth/me");
-  },
+  getProfile: async () => authenticatedRequest("/auth/me"),
 };
 
+// ── User API ─────────────────────────────────────────────────────────────────
 export const userAPI = {
-  // Get current user profile from MongoDB
-  getProfile: async () => {
-    return authenticatedRequest("/user/me");
-  },
+  getProfile: async () => authenticatedRequest("/user/me"),
 
-  // Update user profile
-  updateProfile: async (updates: any) => {
-    return authenticatedRequest("/user/me", {
+  updateProfile: async (updates: Record<string, unknown>) =>
+    authenticatedRequest("/user/me", {
       method: "PUT",
       body: JSON.stringify(updates),
-    });
-  },
+    }),
 
-  // Update user stats
-  updateStats: async (stats: any) => {
-    return authenticatedRequest("/user/stats", {
+  updateStats: async (stats: Record<string, unknown>) =>
+    authenticatedRequest("/user/stats", {
       method: "PUT",
       body: JSON.stringify(stats),
-    });
+    }),
+};
+
+// ── Subject / Quiz / Video types & mock data ─────────────────────────────────
+// Replace the mock fetchers with real API calls once backend routes exist.
+
+export interface Subject {
+  id: string;
+  title: string;
+  lessonsCount: number;
+  videosCount: number;
+  quizzesCount: number;
+  progress: number;
+  color: string;
+  iconName: string;
+}
+
+export interface QuizQuestion {
+  id: string;
+  type: string;
+  text: string;
+  options: string[];
+  correctAnswerIndex: number;
+}
+
+export interface Quiz {
+  id: string;
+  subjectId: string;
+  title: string;
+  difficulty: "Easy" | "Medium" | "Hard";
+  timeLimitMins: number | null;
+  questions: QuizQuestion[];
+}
+
+export interface VideoLesson {
+  id: string;
+  subjectId: string;
+  title: string;
+  duration: string;
+  thumbnailUrl?: string;
+}
+
+// ── Mock data ────────────────────────────────────────────────────────────────
+const SUBJECTS: Subject[] = [
+  {
+    id: "math",
+    title: "Mathematics",
+    lessonsCount: 24,
+    videosCount: 12,
+    quizzesCount: 8,
+    progress: 64,
+    color: "#7C3AED",
+    iconName: "Calculator",
   },
+  {
+    id: "science",
+    title: "Science",
+    lessonsCount: 18,
+    videosCount: 9,
+    quizzesCount: 6,
+    progress: 30,
+    color: "#3B82F6",
+    iconName: "Atom",
+  },
+  {
+    id: "english",
+    title: "English",
+    lessonsCount: 32,
+    videosCount: 15,
+    quizzesCount: 10,
+    progress: 50,
+    color: "#F97316",
+    iconName: "BookOpen",
+  },
+  {
+    id: "history",
+    title: "History",
+    lessonsCount: 14,
+    videosCount: 7,
+    quizzesCount: 5,
+    progress: 20,
+    color: "#92400E",
+    iconName: "Landmark",
+  },
+  {
+    id: "geography",
+    title: "Geography",
+    lessonsCount: 16,
+    videosCount: 8,
+    quizzesCount: 4,
+    progress: 10,
+    color: "#10B981",
+    iconName: "Globe",
+  },
+  {
+    id: "physics",
+    title: "Physics",
+    lessonsCount: 20,
+    videosCount: 10,
+    quizzesCount: 7,
+    progress: 0,
+    color: "#F59E0B",
+    iconName: "Zap",
+  },
+];
+
+const QUIZZES: Quiz[] = [
+  {
+    id: "algebra_fundamentals",
+    subjectId: "math",
+    title: "Algebra Fundamentals",
+    difficulty: "Easy",
+    timeLimitMins: 10,
+    questions: [
+      {
+        id: "q1",
+        type: "multiple_choice",
+        text: "What is the value of x in: 2x + 4 = 10?",
+        options: ["2", "3", "4", "5"],
+        correctAnswerIndex: 1,
+      },
+      {
+        id: "q2",
+        type: "multiple_choice",
+        text: "Which of the following is a linear equation?",
+        options: ["y = x²", "y = 2x + 1", "y = x³", "y = √x"],
+        correctAnswerIndex: 1,
+      },
+      {
+        id: "q3",
+        type: "multiple_choice",
+        text: "Simplify: 3(x + 2) – x",
+        options: ["2x + 6", "2x – 6", "4x + 6", "2x + 2"],
+        correctAnswerIndex: 0,
+      },
+    ],
+  },
+  {
+    id: "geometry_basics",
+    subjectId: "math",
+    title: "Geometry Basics",
+    difficulty: "Medium",
+    timeLimitMins: 15,
+    questions: [
+      {
+        id: "q1",
+        type: "multiple_choice",
+        text: "What is the sum of angles in a triangle?",
+        options: ["90°", "180°", "270°", "360°"],
+        correctAnswerIndex: 1,
+      },
+      {
+        id: "q2",
+        type: "multiple_choice",
+        text: "Area of a circle with radius r is:",
+        options: ["2πr", "πr²", "2πr²", "πd"],
+        correctAnswerIndex: 1,
+      },
+    ],
+  },
+  {
+    id: "science_cells",
+    subjectId: "science",
+    title: "Cell Biology",
+    difficulty: "Medium",
+    timeLimitMins: 12,
+    questions: [
+      {
+        id: "q1",
+        type: "multiple_choice",
+        text: "Which organelle is known as the powerhouse of the cell?",
+        options: ["Nucleus", "Ribosome", "Mitochondria", "Golgi apparatus"],
+        correctAnswerIndex: 2,
+      },
+      {
+        id: "q2",
+        type: "multiple_choice",
+        text: "What controls what enters and exits a cell?",
+        options: ["Cell wall", "Cell membrane", "Nucleus", "Cytoplasm"],
+        correctAnswerIndex: 1,
+      },
+    ],
+  },
+];
+
+const VIDEOS: VideoLesson[] = [
+  {
+    id: "v1",
+    subjectId: "math",
+    title: "Introduction to Algebra",
+    duration: "12:34",
+  },
+  {
+    id: "v2",
+    subjectId: "math",
+    title: "Solving Linear Equations",
+    duration: "18:22",
+  },
+  {
+    id: "v3",
+    subjectId: "science",
+    title: "What is Photosynthesis?",
+    duration: "10:05",
+  },
+  {
+    id: "v4",
+    subjectId: "english",
+    title: "Punctuation Made Easy",
+    duration: "08:47",
+  },
+];
+
+// ── Subject fetchers ─────────────────────────────────────────────────────────
+export const fetchSubjects = async (): Promise<Subject[]> => {
+  // TODO: return authenticatedRequest("/subjects");
+  return new Promise((resolve) => setTimeout(() => resolve(SUBJECTS), 400));
+};
+
+export const fetchSubjectById = async (
+  id: string,
+): Promise<Subject | undefined> => {
+  // TODO: return authenticatedRequest(`/subjects/${id}`);
+  return new Promise((resolve) =>
+    setTimeout(() => resolve(SUBJECTS.find((s) => s.id === id)), 300),
+  );
+};
+
+export const fetchQuizzesBySubject = async (
+  subjectId: string,
+): Promise<Quiz[]> => {
+  // TODO: return authenticatedRequest(`/quizzes?subjectId=${subjectId}`);
+  return new Promise((resolve) =>
+    setTimeout(
+      () => resolve(QUIZZES.filter((q) => q.subjectId === subjectId)),
+      300,
+    ),
+  );
+};
+
+export const fetchQuizById = async (
+  quizId: string,
+): Promise<Quiz | undefined> => {
+  // TODO: return authenticatedRequest(`/quizzes/${quizId}`);
+  return new Promise((resolve) =>
+    setTimeout(() => resolve(QUIZZES.find((q) => q.id === quizId)), 300),
+  );
+};
+
+export const fetchVideosBySubject = async (
+  subjectId: string,
+): Promise<VideoLesson[]> => {
+  // TODO: return authenticatedRequest(`/videos?subjectId=${subjectId}`);
+  return new Promise((resolve) =>
+    setTimeout(
+      () => resolve(VIDEOS.filter((v) => v.subjectId === subjectId)),
+      300,
+    ),
+  );
 };

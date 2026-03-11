@@ -1,4 +1,5 @@
 import { useAuth } from "@/hooks/useAuth";
+import { uploadFile } from "@/services/universalUpload";
 import { Link, router } from "expo-router";
 import {
     ChevronLeft,
@@ -6,12 +7,14 @@ import {
     EyeOff,
     Lock,
     Mail,
+    Upload,
     User,
     UserPlus,
 } from "lucide-react-native";
 import React, { useRef, useState } from "react";
 import {
     ActivityIndicator,
+    Image,
     KeyboardAvoidingView,
     Platform,
     Pressable,
@@ -28,15 +31,31 @@ const Signup = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   const emailRef = useRef<TextInput>(null);
   const passwordRef = useRef<TextInput>(null);
 
   const { signup, loading, error, clearError } = useAuth();
 
+  const handleImageUpload = async () => {
+    try {
+      setUploading(true);
+      const uploadedFile = await uploadFile("temp", "image", "avatars");
+      if (uploadedFile) {
+        setProfileImage(uploadedFile.url);
+      }
+    } catch (error) {
+      console.error("Image upload error:", error);
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleSignup = async () => {
     try {
-      await signup(name, email, password);
+      await signup(name, email, password, profileImage);
       router.replace("/(tabs)/home");
     } catch (error) {
       console.error("Signup error:", error);
@@ -86,6 +105,38 @@ const Signup = () => {
           {/* Logo */}
           <View className="bg-yellow-500 mt-10 p-3 rounded-xl self-start">
             <UserPlus size={22} color="#ffffff" />
+          </View>
+
+          {/* Profile Image Upload */}
+          <View className="mt-6">
+            <Text className="text-slate-500 mb-3 font-medium text-center">
+              Profile Picture (Optional)
+            </Text>
+            <TouchableOpacity
+              onPress={handleImageUpload}
+              className="self-center mb-4"
+              disabled={uploading}
+            >
+              <View className="w-24 h-24 rounded-full bg-gray-200 items-center justify-center border-2 border-gray-300">
+                {profileImage ? (
+                  <Image
+                    source={{ uri: profileImage }}
+                    className="w-full h-full rounded-full"
+                  />
+                ) : uploading ? (
+                  <View className="items-center justify-center">
+                    <Text className="text-gray-500 text-sm">Uploading...</Text>
+                  </View>
+                ) : (
+                  <View className="items-center justify-center">
+                    <Upload size={32} color="#9ca3af" />
+                    <Text className="text-gray-500 text-xs mt-1">
+                      Tap to upload
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </TouchableOpacity>
           </View>
 
           {/* Heading */}

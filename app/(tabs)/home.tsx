@@ -1,15 +1,20 @@
-import React, { useRef } from "react";
+import { useAuth } from "@/hooks/useAuth";
+import { fetchSubjects, Subject } from "@/services/api";
+import { uploadFile } from "@/services/universalUpload";
+import React, { useEffect, useState } from "react";
 import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  Image,
-  StatusBar,
+  Alert,
   Dimensions,
+  Image,
+  ScrollView,
+  StatusBar,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+// ── Main Screen ───────────────────────────────────────────────────────────────
 const { width } = Dimensions.get("window");
 
 // ── Icons (inline SVG-style via Text or replace with react-native-vector-icons / lucide-react-native) ──
@@ -53,7 +58,10 @@ const StatCard = ({
   value: string;
   label: string;
 }) => (
-  <View className="bg-white rounded-2xl p-4 mr-3 shadow-sm" style={{ width: width * 0.38 }}>
+  <View
+    className="bg-white rounded-2xl p-4 mr-3 shadow-sm"
+    style={{ width: width * 0.38 }}
+  >
     {icon}
     <Text className="text-2xl font-bold text-gray-900 mt-3">{value}</Text>
     <Text className="text-gray-400 text-sm mt-0.5">{label}</Text>
@@ -74,7 +82,12 @@ const SubjectCard = ({
 }) => (
   <TouchableOpacity
     className="rounded-2xl p-4 justify-between"
-    style={{ backgroundColor: bgColor, width: (width - 48) / 2, height: 120, marginBottom: 12 }}
+    style={{
+      backgroundColor: bgColor,
+      width: (width - 48) / 2,
+      height: 120,
+      marginBottom: 12,
+    }}
     activeOpacity={0.85}
   >
     <View className="self-end w-9 h-9 rounded-xl bg-white/20 items-center justify-center">
@@ -110,27 +123,81 @@ const UploadItem = ({
 );
 
 // ── Bottom Tab ────────────────────────────────────────────────────────────────
-const Tab = ({
-  label,
-  active,
-}: {
-  label: string;
-  active?: boolean;
-}) => (
+const Tab = ({ label, active }: { label: string; active?: boolean }) => (
   <TouchableOpacity className="flex-1 items-center py-2">
     <Text
       className={`text-sm font-medium ${active ? "text-purple-600" : "text-gray-400"}`}
     >
       {label}
     </Text>
-    {active && (
-      <View className="mt-1 w-1 h-1 rounded-full bg-purple-600" />
-    )}
+    {active && <View className="mt-1 w-1 h-1 rounded-full bg-purple-600" />}
   </TouchableOpacity>
 );
 
-// ── Main Screen ───────────────────────────────────────────────────────────────
 export default function HomeDashboard() {
+  const { user, loading } = useAuth();
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [subjectsLoading, setSubjectsLoading] = useState(true);
+
+  // Handle file upload from home screen
+  const handleUploadFile = async () => {
+    if (!user) {
+      Alert.alert("Error", "Please login to upload files");
+      return;
+    }
+
+    try {
+      const result = await uploadFile(user._id, "any", "home-uploads");
+      if (result) {
+        Alert.alert("Success", `${result.name} uploaded successfully!`);
+        // TODO: Refresh recent uploads list
+      }
+    } catch (error) {
+      console.error("Upload error:", error);
+      Alert.alert("Error", "Failed to upload file. Please try again.");
+    }
+  };
+
+  // Fetch subjects on mount
+  useEffect(() => {
+    const loadSubjects = async () => {
+      try {
+        const data = await fetchSubjects();
+        setSubjects(data);
+      } catch (error) {
+        console.error("Failed to fetch subjects:", error);
+      } finally {
+        setSubjectsLoading(false);
+      }
+    };
+    loadSubjects();
+  }, []);
+
+  // Format learning time
+  const formatLearningTime = (minutes: number) => {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return `${hours}h ${mins}m`;
+  };
+
+  // Get user initials for avatar
+  const getUserInitials = (name: string) => {
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
+  if (loading || subjectsLoading) {
+    return (
+      <SafeAreaView className="flex-1 bg-gray-50 justify-center items-center">
+        <Text className="text-gray-500">Loading...</Text>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView className="flex-1 bg-gray-50" edges={["top"]}>
       <StatusBar barStyle="dark-content" backgroundColor="#f9fafb" />
@@ -144,43 +211,31 @@ export default function HomeDashboard() {
         <View className="flex-row justify-between items-start px-5 pt-4 pb-2">
           <View>
             <Text className="text-3xl font-bold text-gray-900">
-              Hello, Sarah 👋
+              Hello, {user?.name || "User"} 👋
             </Text>
             <View className="flex-row items-center mt-2 bg-orange-50 self-start px-3 py-1 rounded-full border border-orange-200">
               <Text className="text-base">🔥</Text>
               <Text className="text-orange-500 font-semibold text-sm ml-1">
-                7 day streak
+                {user?.streak || 0} day streak
               </Text>
             </View>
           </View>
           <TouchableOpacity>
             <View className="w-12 h-12 rounded-full bg-gray-300 overflow-hidden border-2 border-purple-200">
-              {/* Replace with actual Image source */}
-              <View className="w-full h-full bg-gradient-to-br from-purple-400 to-blue-500 items-center justify-center">
-                <Text className="text-white font-bold text-lg">S</Text>
-              </View>
+              {user?.avatar ? (
+                <Image
+                  source={{ uri: user.avatar }}
+                  className="w-full h-full"
+                />
+              ) : (
+                <View className="w-full h-full bg-gradient-to-br from-purple-400 to-blue-500 items-center justify-center">
+                  <Text className="text-white font-bold text-lg">
+                    {getUserInitials(user?.name || "U")}
+                  </Text>
+                </View>
+              )}
             </View>
           </TouchableOpacity>
-        </View>
-
-        {/* ── Progress Banner ── */}
-        <View className="mx-5 mt-3">
-          <View
-            className="rounded-2xl p-5 flex-row items-center justify-between"
-            style={{ backgroundColor: "#7C3AED" }}
-          >
-            <View>
-              <Text className="text-white font-bold text-lg">
-                Great progress!
-              </Text>
-              <Text className="text-purple-200 text-sm mt-0.5">
-                3 lessons completed this week
-              </Text>
-            </View>
-            <View className="w-12 h-12 rounded-full bg-white/20 items-center justify-center">
-              <Text className="text-white text-2xl">↗</Text>
-            </View>
-          </View>
         </View>
 
         {/* ── Stats Row ── */}
@@ -189,57 +244,22 @@ export default function HomeDashboard() {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={{ paddingHorizontal: 20, paddingVertical: 16 }}
         >
-          <StatCard icon={<ClockIcon />} value="2h 15m" label="Learning Time" />
-          <StatCard icon={<BadgeIcon />} value="12" label="Quizzes Done" />
-          <StatCard icon={<VideoIcon />} value="8" label="Videos Watched" />
+          <StatCard
+            icon={<ClockIcon />}
+            value={formatLearningTime(user?.totalLearningTime || 0)}
+            label="Learning Time"
+          />
+          <StatCard
+            icon={<BadgeIcon />}
+            value={String(user?.quizzesCompleted || 0)}
+            label="Quizzes Done"
+          />
+          <StatCard
+            icon={<VideoIcon />}
+            value={String(user?.videosWatched || 0)}
+            label="Videos Watched"
+          />
         </ScrollView>
-
-        {/* ── Continue Learning ── */}
-        <View className="px-5">
-          <Text className="text-xl font-bold text-gray-900 mb-3">
-            Continue Learning
-          </Text>
-          <View className="bg-white rounded-2xl p-4 shadow-sm">
-            {/* Tag */}
-            <View className="flex-row justify-between items-center">
-              <View className="flex-row items-center bg-purple-50 px-3 py-1 rounded-lg border border-purple-100">
-                <Text className="text-purple-600 text-sm">⊞</Text>
-                <Text className="text-purple-700 font-medium text-sm ml-1">
-                  Mathematics
-                </Text>
-              </View>
-              <TouchableOpacity>
-                <Text className="text-gray-400 text-lg tracking-widest">···</Text>
-              </TouchableOpacity>
-            </View>
-
-            <Text className="text-gray-900 font-bold text-lg mt-3">
-              Introduction to Algebra
-            </Text>
-
-            {/* Progress bar */}
-            <View className="mt-3 mb-1">
-              <View className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                <View
-                  className="h-full rounded-full"
-                  style={{ width: "64%", backgroundColor: "#7C3AED" }}
-                />
-              </View>
-            </View>
-            <Text className="text-right text-gray-500 text-xs mb-4">64%</Text>
-
-            <TouchableOpacity
-              className="rounded-xl py-4 items-center flex-row justify-center"
-              style={{ backgroundColor: "#7C3AED" }}
-              activeOpacity={0.85}
-            >
-              <Text className="text-white font-semibold text-base">
-                Continue Lesson
-              </Text>
-              <Text className="text-white ml-2 text-base">→</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
 
         {/* ── Featured Subjects ── */}
         <View className="px-5 mt-6">
@@ -247,30 +267,25 @@ export default function HomeDashboard() {
             Featured Subjects
           </Text>
           <View className="flex-row flex-wrap justify-between">
-            <SubjectCard
-              title="Mathematics"
-              lessons={24}
-              icon={<GridIcon />}
-              bgColor="#7C3AED"
-            />
-            <SubjectCard
-              title="Science"
-              lessons={18}
-              icon={<AtomIcon />}
-              bgColor="#3B82F6"
-            />
-            <SubjectCard
-              title="English"
-              lessons={32}
-              icon={<BookIcon />}
-              bgColor="#F97316"
-            />
-            <SubjectCard
-              title="History"
-              lessons={14}
-              icon={<ColumnIcon />}
-              bgColor="#92400E"
-            />
+            {subjects.slice(0, 4).map((subject) => (
+              <SubjectCard
+                key={subject.id}
+                title={subject.title}
+                lessons={subject.lessonsCount}
+                icon={
+                  <Text className="text-white text-xl">
+                    {subject.iconName === "Calculator"
+                      ? "⊞"
+                      : subject.iconName === "Atom"
+                        ? "⚛"
+                        : subject.iconName === "BookOpen"
+                          ? "📖"
+                          : "🏛️"}
+                  </Text>
+                }
+                bgColor={subject.color}
+              />
+            ))}
           </View>
         </View>
 
@@ -280,7 +295,7 @@ export default function HomeDashboard() {
             <Text className="text-xl font-bold text-gray-900">
               My Recent Uploads
             </Text>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={handleUploadFile}>
               <Text className="text-purple-600 font-medium text-sm">
                 + Upload More
               </Text>
@@ -301,8 +316,6 @@ export default function HomeDashboard() {
           </View>
         </View>
       </ScrollView>
-
-     
     </SafeAreaView>
   );
 }
