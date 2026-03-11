@@ -1,11 +1,6 @@
 import { useAuth } from "@/hooks/useAuth";
-import {
-    formatFileSize,
-    getFileIcon,
-    uploadFile,
-    UploadResult,
-} from "@/services/universalUpload";
-import { BookOpen, FileText, Plus, Trash2, Upload } from "lucide-react-native";
+import { LocalPDFStorage, PDFDocument } from "@/services/localPDFStorage";
+import { BookOpen, FileText, Plus, Trash2, Upload, Folder, HardDrive } from "lucide-react-native";
 import React, { useCallback, useEffect, useState } from "react";
 import {
     ActivityIndicator,
@@ -20,258 +15,334 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 const MaterialsScreen = () => {
   const { user } = useAuth();
-  const [materials, setMaterials] = useState<UploadResult[]>([]);
+  const [localPDFs, setLocalPDFs] = useState<PDFDocument[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [selectedSection, setSelectedSection] = useState<'cloud' | 'local'>('cloud');
+  const [selectedSubject, setSelectedSubject] = useState<string>('All');
+  const [availableSubjects, setAvailableSubjects] = useState<string[]>([]);
 
-  // Load materials
-  const loadMaterials = useCallback(async () => {
-    if (!user) return;
+  // Load available subjects
+  const loadAvailableSubjects = useCallback(async () => {
+    try {
+      const subjects = await LocalPDFStorage.getAvailableSubjects();
+      setAvailableSubjects(['All', ...subjects]);
+    } catch (error) {
+      console.error('Failed to load subjects:', error);
+    }
+  }, []);
 
+  // Load filtered local PDFs
+  const loadFilteredPDFs = useCallback(async () => {
     try {
       setLoading(true);
-      // TODO: Fetch materials from backend
-      // For now, use mock data
-      const mockMaterials: UploadResult[] = [
-        {
-          id: "1",
-          name: "Math Notes Chapter 1.pdf",
-          type: "pdf",
-          url: "https://example.com/math-notes.pdf",
-          size: 2048576,
-          uploadedAt: new Date("2024-01-15"),
-          mimeType: "application/pdf",
-        },
-        {
-          id: "2",
-          name: "Science Diagram.png",
-          type: "image",
-          url: "https://example.com/science-diagram.png",
-          size: 1024576,
-          uploadedAt: new Date("2024-01-14"),
-          mimeType: "image/png",
-        },
-      ];
-      setMaterials(mockMaterials);
+      let filteredPDFs;
+      if (selectedSubject === 'All') {
+        filteredPDFs = await LocalPDFStorage.getAllPDFs();
+      } else {
+        filteredPDFs = await LocalPDFStorage.getPDFsBySubject(selectedSubject);
+      }
+      setLocalPDFs(filteredPDFs);
     } catch (error) {
-      console.error("Error loading materials:", error);
+      console.error('Failed to load PDFs:', error);
+      Alert.alert('Error', 'Failed to load PDFs');
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
-  }, [user]);
+  }, [selectedSubject]);
 
-  // Handle material upload
-  const handleUploadMaterial = async () => {
+  // Handle file upload
+  const handleUpload = async () => {
     if (!user) {
-      Alert.alert("Error", "Please login to upload materials");
+      Alert.alert('Error', 'Please login to upload materials');
       return;
     }
 
-    try {
-      setUploading(true);
-      const material = await uploadFile(user._id, "document", "materials");
-
-      if (material) {
-        setMaterials((prev) => [material, ...prev]);
-        Alert.alert("Success", `${material.name} uploaded successfully!`);
+    if (selectedSection === 'local') {
+      try {
+        setUploading(true);
+        const result = await LocalPDFStorage.uploadPDF(selectedSubject === 'All' ? undefined : selectedSubject);
+        if (result) {
+          Alert.alert('Success', `${result.name} uploaded successfully to ${result.subject}!`);
+          await loadFilteredPDFs(); // Refresh local PDFs
+          await loadAvailableSubjects(); // Refresh subjects
+        }
+      } catch (error) {
+        console.error('Upload failed:', error);
+        Alert.alert('Error', 'Failed to upload material');
+      } finally {
+        setUploading(false);
       }
-    } catch (error) {
-      console.error("Upload error:", error);
-      Alert.alert("Error", "Failed to upload material. Please try again.");
-    } finally {
-      setUploading(false);
     }
   };
 
   // Handle material deletion
-  const handleDeleteMaterial = (material: UploadResult) => {
+  const handleDelete = async (id: string, name: string) => {
     Alert.alert(
-      "Delete Material",
-      `Are you sure you want to delete "${material.name}"?`,
+      'Delete Material',
+      `Are you sure you want to delete ${name}?`,
       [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: () => {
-            setMaterials((prev) => prev.filter((m) => m.id !== material.id));
-            // TODO: Delete from backend and Cloudinary
-            Alert.alert("Success", "Material deleted successfully");
-          },
-        },
-      ],
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: () => confirmDelete(id) }
+      ]
     );
   };
 
-  // Handle material download/view
-  const handleViewMaterial = (material: UploadResult) => {
-    // TODO: Implement material viewing/downloading
-    Alert.alert("Open Material", `Opening ${material.name}...`);
+  const confirmDelete = async (id: string) => {
+    try {
+      const success = await LocalPDFStorage.deletePDF(id);
+      if (success) {
+        Alert.alert('Success', 'Material deleted successfully');
+        await loadFilteredPDFs(); // Refresh local PDFs
+        await loadAvailableSubjects(); // Refresh subjects
+      } else {
+        Alert.alert('Error', 'Failed to delete material');
+      }
+    } catch (error) {
+      console.error('Delete failed:', error);
+      Alert.alert('Error', 'Failed to delete material');
+    }
   };
 
-  // Refresh materials
-  const onRefresh = () => {
+  // Handle refresh
+  const handleRefresh = async () => {
     setRefreshing(true);
-    loadMaterials();
+    if (selectedSection === 'local') {
+      await loadFilteredPDFs();
+    }
+    setRefreshing(false);
+  };
+
+  // Handle section change
+  const handleSectionChange = (section: 'cloud' | 'local') => {
+    setSelectedSection(section);
+    if (section === 'local') {
+      loadAvailableSubjects();
+      loadFilteredPDFs();
+    }
+  };
+
+  // Handle subject change
+  const handleSubjectChange = (subject: string) => {
+    setSelectedSubject(subject);
+  };
+
+  // Handle PDF viewing
+  const handleViewPDF = async (pdf: PDFDocument) => {
+    try {
+      Alert.alert(
+        'PDF Details',
+        `Name: ${pdf.name}\nSubject: ${pdf.subject || 'General'}\nSize: ${LocalPDFStorage.formatFileSize(pdf.size)}\nUploaded: ${new Date(pdf.uploadDate).toLocaleDateString()}`,
+        [
+          { text: 'OK' }
+        ]
+      );
+    } catch (error) {
+      console.error('Failed to view PDF:', error);
+      Alert.alert('Error', 'Failed to open PDF');
+    }
   };
 
   useEffect(() => {
-    loadMaterials();
-  }, [user, loadMaterials]);
+    if (selectedSection === 'local') {
+      loadAvailableSubjects();
+      loadFilteredPDFs();
+    }
+  }, [selectedSection]);
 
-  // Material Item Component
-  const MaterialItem = ({ material }: { material: UploadResult }) => (
-    <View className="bg-white rounded-xl p-4 mb-3 shadow-sm border border-gray-100">
-      <View className="flex-row items-start">
-        <View className="w-12 h-12 rounded-lg bg-blue-50 items-center justify-center mr-3">
-          <Text className="text-2xl">{getFileIcon(material.type)}</Text>
-        </View>
-
+  // Render material item
+  const renderMaterialItem = ({ item }: { item: PDFDocument }) => (
+    <TouchableOpacity
+      onPress={() => handleViewPDF(item)}
+      className="bg-white rounded-lg p-4 mb-3 shadow-sm border border-gray-200"
+    >
+      <View className="flex-row justify-between items-start mb-2">
         <View className="flex-1">
-          <Text
-            className="font-semibold text-gray-900 text-base mb-1"
-            numberOfLines={1}
-          >
-            {material.name}
+          <Text className="font-semibold text-gray-900 text-base mb-1" numberOfLines={1}>
+            {item.name}
           </Text>
-
-          <View className="flex-row items-center mb-2">
-            <Text className="text-gray-500 text-xs mr-3">
-              {formatFileSize(material.size)}
+          <View className="flex-row items-center">
+            <FileText size={14} color="#6B7280" />
+            <Text className="text-sm text-gray-600 ml-2">
+              {LocalPDFStorage.formatFileSize(item.size)}
             </Text>
-            <Text className="text-gray-500 text-xs">
-              {material.uploadedAt.toLocaleDateString()}
-            </Text>
-          </View>
-
-          <View className="flex-row space-x-2">
-            <TouchableOpacity
-              onPress={() => handleViewMaterial(material)}
-              className="bg-blue-50 px-3 py-1.5 rounded-lg flex-row items-center"
-            >
-              <BookOpen size={14} color="#3B82F6" />
-              <Text className="text-blue-600 text-xs font-medium ml-1">
-                View
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => handleDeleteMaterial(material)}
-              className="bg-red-50 px-3 py-1.5 rounded-lg flex-row items-center"
-            >
-              <Trash2 size={14} color="#EF4444" />
-              <Text className="text-red-600 text-xs font-medium ml-1">
-                Delete
-              </Text>
-            </TouchableOpacity>
           </View>
         </View>
+        <TouchableOpacity
+          onPress={() => handleDelete(item.id, item.name)}
+          className="p-2 bg-red-50 rounded-lg"
+        >
+          <Trash2 size={16} color="#DC2626" />
+        </TouchableOpacity>
       </View>
+      
+      <View className="flex-row items-center justify-between">
+        <View className="flex-row items-center">
+          <BookOpen size={12} color="#6B7280" />
+          <Text className="text-xs text-gray-500 ml-1">
+            {new Date(item.uploadDate).toLocaleDateString()}
+          </Text>
+        </View>
+        
+        {item.subject && (
+          <View className="bg-blue-100 px-2 py-1 rounded-full">
+            <Text className="text-xs text-blue-800 font-medium">
+              {item.subject}
+            </Text>
+          </View>
+        )}
+      </View>
+    </TouchableOpacity>
+  );
+
+  // Render empty state
+  const renderEmptyState = () => (
+    <View className="flex-1 justify-center items-center px-6">
+      <HardDrive size={48} color="#9CA3AF" />
+      <Text className="text-gray-600 text-center mt-4 text-base">
+        No {selectedSection === 'local' ? 'PDFs' : 'materials'} uploaded yet
+      </Text>
+      <Text className="text-gray-500 text-center mt-2 text-sm">
+        Upload your first {selectedSection === 'local' ? 'PDF' : 'material'} to get started
+      </Text>
     </View>
   );
+
+  if (!user) {
+    return (
+      <SafeAreaView className="flex-1 bg-gray-50">
+        <View className="flex-1 justify-center items-center px-6">
+          <Text className="text-gray-600 text-center text-base">
+            Please login to access materials
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
       {/* Header */}
-      <View className="bg-white border-b border-gray-200 px-5 py-4">
-        <View className="flex-row items-center justify-between">
-          <View>
-            <Text className="text-2xl font-bold text-gray-900">Materials</Text>
-            <Text className="text-gray-500 text-sm mt-1">
-              Upload and manage your learning materials
-            </Text>
-          </View>
-
+      <View className="bg-white border-b border-gray-200 px-4 py-4">
+        <View className="flex-row justify-between items-center mb-3">
+          <Text className="text-xl font-bold text-gray-900">
+            Materials
+          </Text>
           <TouchableOpacity
-            onPress={handleUploadMaterial}
-            disabled={uploading}
-            className="bg-blue-500 p-3 rounded-full shadow-lg"
+            onPress={handleUpload}
+            disabled={uploading || selectedSection === 'cloud'}
+            className={`px-4 py-2 rounded-lg flex-row items-center ${
+              uploading || selectedSection === 'cloud' ? 'opacity-50' : ''
+            }`}
           >
             {uploading ? (
               <ActivityIndicator size="small" color="white" />
             ) : (
-              <Plus size={20} color="white" />
+              <Upload size={16} color="white" />
             )}
+            <Text className="text-white font-medium ml-2">
+              {uploading ? 'Uploading...' : 'Upload'}
+            </Text>
           </TouchableOpacity>
         </View>
+
+        {/* Section Toggle */}
+        <View className="flex-row space-x-2 mb-2">
+          <TouchableOpacity
+            onPress={() => handleSectionChange('cloud')}
+            className={`px-3 py-1 rounded-full ${
+              selectedSection === 'cloud' ? 'bg-blue-600' : 'bg-gray-200'
+            }`}
+          >
+            <Text
+              className={`text-sm font-medium ${
+                selectedSection === 'cloud' ? 'text-white' : 'text-gray-700'
+              }`}
+            >
+              <Folder size={14} className="mr-1" />
+              Cloud
+            </Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            onPress={() => handleSectionChange('local')}
+            className={`px-3 py-1 rounded-full ${
+              selectedSection === 'local' ? 'bg-blue-600' : 'bg-gray-200'
+            }`}
+          >
+            <Text
+              className={`text-sm font-medium ${
+                selectedSection === 'local' ? 'text-white' : 'text-gray-700'
+              }`}
+            >
+              <HardDrive size={14} className="mr-1" />
+              Local PDFs
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Subject Filter - Only show for local section */}
+        {selectedSection === 'local' && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-2">
+            <View className="flex-row space-x-2">
+              {availableSubjects.map((subject) => (
+                <TouchableOpacity
+                  key={subject}
+                  onPress={() => handleSubjectChange(subject)}
+                  className={`px-3 py-1 rounded-full ${
+                    selectedSubject === subject ? 'bg-blue-600' : 'bg-gray-200'
+                  }`}
+                >
+                  <Text
+                    className={`text-sm font-medium ${
+                      selectedSubject === subject ? 'text-white' : 'text-gray-700'
+                    }`}
+                  >
+                    {subject}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </ScrollView>
+        )}
       </View>
 
       {/* Content */}
-      <ScrollView
-        className="flex-1 px-5 pt-4"
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-      >
-        {/* Stats Cards */}
-        <View className="flex-row space-x-3 mb-6">
-          <View className="flex-1 bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-            <View className="flex-row items-center justify-between">
-              <View>
-                <Text className="text-gray-500 text-xs">Total Materials</Text>
-                <Text className="text-2xl font-bold text-gray-900 mt-1">
-                  {materials.length}
-                </Text>
-              </View>
-              <FileText size={24} color="#3B82F6" />
-            </View>
-          </View>
-
-          <View className="flex-1 bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-            <View className="flex-row items-center justify-between">
-              <View>
-                <Text className="text-gray-500 text-xs">Storage Used</Text>
-                <Text className="text-2xl font-bold text-gray-900 mt-1">
-                  {formatFileSize(
-                    materials.reduce((total, m) => total + m.size, 0),
-                  )}
-                </Text>
-              </View>
-              <Upload size={24} color="#10B981" />
-            </View>
-          </View>
+      {loading ? (
+        <View className="flex-1 justify-center items-center">
+          <ActivityIndicator size="large" color="#3B82F6" />
         </View>
-
-        {/* Materials List */}
-        <View>
-          <Text className="text-lg font-semibold text-gray-900 mb-3">
-            Your Materials
+      ) : selectedSection === 'local' && localPDFs.length === 0 ? (
+        <ScrollView className="flex-1">
+          {renderEmptyState()}
+        </ScrollView>
+      ) : selectedSection === 'local' ? (
+        <ScrollView className="flex-1">
+          <View className="px-4 py-4">
+            {localPDFs.map((item) => (
+              <View key={item.id}>
+                {renderMaterialItem({ item })}
+              </View>
+            ))}
+          </View>
+        </ScrollView>
+      ) : (
+        <View className="flex-1 justify-center items-center px-6">
+          <Folder size={48} color="#9CA3AF" />
+          <Text className="text-gray-600 text-center mt-4 text-base">
+            Cloud materials coming soon
           </Text>
-
-          {loading ? (
-            <View className="items-center justify-center py-8">
-              <ActivityIndicator size="large" color="#3B82F6" />
-              <Text className="text-gray-500 text-sm mt-3">
-                Loading materials...
-              </Text>
-            </View>
-          ) : materials.length === 0 ? (
-            <View className="items-center justify-center py-12">
-              <Upload size={48} color="#9CA3AF" />
-              <Text className="text-gray-500 text-center mt-4 mb-6">
-                No materials uploaded yet. Tap the + button to upload your first
-                learning material!
-              </Text>
-              <TouchableOpacity
-                onPress={handleUploadMaterial}
-                className="bg-blue-500 px-6 py-3 rounded-full"
-              >
-                <Text className="text-white font-semibold">
-                  Upload Material
-                </Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            materials.map((material) => (
-              <MaterialItem key={material.id} material={material} />
-            ))
-          )}
+          <Text className="text-gray-500 text-center mt-2 text-sm">
+            Switch to Local PDFs to upload and manage files
+          </Text>
         </View>
+      )}
 
-        <View className="h-20" />
-      </ScrollView>
+      {/* Refresh control */}
+      {selectedSection === 'local' && (
+        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+      )}
     </SafeAreaView>
   );
 };
