@@ -1,7 +1,7 @@
 import {
-    DarkTheme,
-    DefaultTheme,
-    ThemeProvider,
+  DarkTheme,
+  DefaultTheme,
+  ThemeProvider,
 } from "@react-navigation/native";
 import { useFonts } from "expo-font";
 import { Stack, router } from "expo-router";
@@ -37,31 +37,16 @@ function RootLayoutContent() {
     "Grift-Black": require("../assets/fonts/grift-black.otf"),
   });
 
-  /**
-   * Auth Guard — runs after session check completes.
-   *
-   * WHY useEffect + router.replace instead of <Redirect>?
-   * - loading is async. If we render <Redirect> immediately,
-   *   it fires before MongoDB finishes checking the cached session.
-   * - useEffect waits until loading is false, THEN redirects.
-   *
-   * router.replace() vs router.push():
-   * - replace() removes the current screen from history stack.
-   *   So pressing Back won't bring you back to the loading screen.
-   */
   useEffect(() => {
     if (!fontsLoaded || loading) return;
 
     if (user) {
-      // User is logged in → go to main app
       router.replace("/(tabs)/home");
     } else {
-      // No session → go to welcome/auth flow
       router.replace("/(auth)/welcome");
     }
   }, [user, loading, fontsLoaded]);
 
-  // Show a full-screen spinner while checking session + loading fonts
   if (loading || !fontsLoaded) {
     return (
       <View
@@ -83,6 +68,11 @@ function RootLayoutContent() {
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+        {/* ✅ PDF viewer — full-screen, no header (viewer has its own) */}
+        <Stack.Screen
+          name="pdf-viewer"
+          options={{ headerShown: false, presentation: "modal" }}
+        />
       </Stack>
       <StatusBar style="auto" />
     </ThemeProvider>

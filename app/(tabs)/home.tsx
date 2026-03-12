@@ -1,9 +1,9 @@
 import { useAuth } from "@/hooks/useAuth";
 import { fetchSubjects, Subject } from "@/services/api";
-import { uploadFile } from "@/services/universalUpload";
+import { LocalPDFStorage, PDFDocument } from "@/services/localPDFStorage";
+import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
-  Alert,
   Dimensions,
   Image,
   ScrollView,
@@ -14,10 +14,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-// ── Main Screen ───────────────────────────────────────────────────────────────
 const { width } = Dimensions.get("window");
 
-// ── Icons (inline SVG-style via Text or replace with react-native-vector-icons / lucide-react-native) ──
 const ClockIcon = () => (
   <View className="w-8 h-8 rounded-full bg-purple-100 items-center justify-center">
     <Text className="text-purple-600 text-base">🕐</Text>
@@ -33,22 +31,12 @@ const VideoIcon = () => (
     <Text className="text-red-500 text-base">▶️</Text>
   </View>
 );
-const GridIcon = () => <Text className="text-white text-xl">⊞</Text>;
-const AtomIcon = () => <Text className="text-white text-xl">⚛</Text>;
-const BookIcon = () => <Text className="text-white text-xl">📖</Text>;
-const ColumnIcon = () => <Text className="text-white text-xl">🏛️</Text>;
 const FileIcon = () => (
   <View className="w-10 h-10 rounded-xl bg-purple-100 items-center justify-center">
     <Text className="text-purple-600 text-lg">📄</Text>
   </View>
 );
-const ImageIcon = () => (
-  <View className="w-10 h-10 rounded-xl bg-purple-100 items-center justify-center">
-    <Text className="text-purple-600 text-lg">🖼️</Text>
-  </View>
-);
 
-// ── Stat Card ──────────────────────────────────────────────────────────────────
 const StatCard = ({
   icon,
   value,
@@ -68,7 +56,6 @@ const StatCard = ({
   </View>
 );
 
-// ── Subject Card ──────────────────────────────────────────────────────────────
 const SubjectCard = ({
   title,
   lessons,
@@ -101,36 +88,24 @@ const SubjectCard = ({
 );
 
 // ── Upload Item ────────────────────────────────────────────────────────────────
-const UploadItem = ({
-  icon,
-  title,
-  meta,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  meta: string;
-}) => (
-  <View className="flex-row items-center py-3.5 border-b border-gray-100">
-    {icon}
+const UploadItem = ({ pdf, onPress }: { pdf: PDFDocument; onPress: () => void }) => (
+  <TouchableOpacity
+    onPress={onPress}
+    className="flex-row items-center py-3.5 border-b border-gray-100"
+    activeOpacity={0.7}
+  >
+    <FileIcon />
     <View className="flex-1 ml-3">
-      <Text className="text-gray-900 font-semibold text-sm">{title}</Text>
-      <Text className="text-gray-400 text-xs mt-0.5">{meta}</Text>
+      <Text className="text-gray-900 font-semibold text-sm" numberOfLines={1}>
+        {pdf.name}
+      </Text>
+      <Text className="text-gray-400 text-xs mt-0.5">
+        {pdf.subject ?? "General"} • {LocalPDFStorage.formatFileSize(pdf.size)}
+      </Text>
     </View>
-    <TouchableOpacity className="p-2">
-      <Text className="text-gray-400 text-lg leading-none">⋮</Text>
-    </TouchableOpacity>
-  </View>
-);
-
-// ── Bottom Tab ────────────────────────────────────────────────────────────────
-const Tab = ({ label, active }: { label: string; active?: boolean }) => (
-  <TouchableOpacity className="flex-1 items-center py-2">
-    <Text
-      className={`text-sm font-medium ${active ? "text-purple-600" : "text-gray-400"}`}
-    >
-      {label}
-    </Text>
-    {active && <View className="mt-1 w-1 h-1 rounded-full bg-purple-600" />}
+    <View className="bg-blue-100 px-2 py-0.5 rounded-full ml-2">
+      <Text className="text-xs text-blue-700 font-semibold">PDF</Text>
+    </View>
   </TouchableOpacity>
 );
 
@@ -138,27 +113,19 @@ export default function HomeDashboard() {
   const { user, loading } = useAuth();
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [subjectsLoading, setSubjectsLoading] = useState(true);
+  const [recentUploads, setRecentUploads] = useState<PDFDocument[]>([]);
 
-  // Handle file upload from home screen
-  const handleUploadFile = async () => {
-    if (!user) {
-      Alert.alert("Error", "Please login to upload files");
-      return;
-    }
-
+  // ✅ FIXED: load real local uploads for this user
+  const loadRecentUploads = async () => {
+    if (!user) return;
     try {
-      const result = await uploadFile(user._id, "any", "home-uploads");
-      if (result) {
-        Alert.alert("Success", `${result.name} uploaded successfully!`);
-        // TODO: Refresh recent uploads list
-      }
+      const pdfs = await LocalPDFStorage.getAllPDFs(user._id);
+      setRecentUploads(pdfs.slice(0, 3)); // show last 3
     } catch (error) {
-      console.error("Upload error:", error);
-      Alert.alert("Error", "Failed to upload file. Please try again.");
+      console.error("Failed to load recent uploads:", error);
     }
   };
 
-  // Fetch subjects on mount
   useEffect(() => {
     const loadSubjects = async () => {
       try {
@@ -173,21 +140,39 @@ export default function HomeDashboard() {
     loadSubjects();
   }, []);
 
-  // Format learning time
+  useEffect(() => {
+    if (user) loadRecentUploads();
+  }, [user]);
+
   const formatLearningTime = (minutes: number) => {
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
     return `${hours}h ${mins}m`;
   };
 
-  // Get user initials for avatar
-  const getUserInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
+  const getUserInitials = (name: string) =>
+    name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
+
+  const handleViewPDF = (pdf: PDFDocument) => {
+    router.push({
+      pathname: "/pdf-viewer",
+      params: {
+        uri: pdf.uri,
+        name: pdf.name,
+        subject: pdf.subject ?? "General",
+        size: String(pdf.size),
+        uploadDate: pdf.uploadDate,
+      },
+    });
+  };
+
+  // ✅ FIXED: upload goes local, not Cloudinary
+  const handleUploadMore = async () => {
+    if (!user) return;
+    const result = await LocalPDFStorage.uploadPDF(user._id);
+    if (result) {
+      loadRecentUploads();
+    }
   };
 
   if (loading || subjectsLoading) {
@@ -207,7 +192,7 @@ export default function HomeDashboard() {
         contentContainerStyle={{ paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Header ── */}
+        {/* Header */}
         <View className="flex-row justify-between items-start px-5 pt-4 pb-2">
           <View>
             <Text className="text-3xl font-bold text-gray-900">
@@ -220,25 +205,20 @@ export default function HomeDashboard() {
               </Text>
             </View>
           </View>
-          <TouchableOpacity>
-            <View className="w-12 h-12 rounded-full bg-gray-300 overflow-hidden border-2 border-purple-200">
-              {user?.avatar ? (
-                <Image
-                  source={{ uri: user.avatar }}
-                  className="w-full h-full"
-                />
-              ) : (
-                <View className="w-full h-full bg-gradient-to-br from-purple-400 to-blue-500 items-center justify-center">
-                  <Text className="text-white font-bold text-lg">
-                    {getUserInitials(user?.name || "U")}
-                  </Text>
-                </View>
-              )}
-            </View>
-          </TouchableOpacity>
+          <View className="w-12 h-12 rounded-full bg-gray-300 overflow-hidden border-2 border-purple-200">
+            {user?.avatar ? (
+              <Image source={{ uri: user.avatar }} className="w-full h-full" />
+            ) : (
+              <View className="w-full h-full bg-purple-400 items-center justify-center">
+                <Text className="text-white font-bold text-lg">
+                  {getUserInitials(user?.name || "U")}
+                </Text>
+              </View>
+            )}
+          </View>
         </View>
 
-        {/* ── Stats Row ── */}
+        {/* Stats */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -261,11 +241,9 @@ export default function HomeDashboard() {
           />
         </ScrollView>
 
-        {/* ── Featured Subjects ── */}
-        <View className="px-5 mt-6">
-          <Text className="text-xl font-bold text-gray-900 mb-3">
-            Featured Subjects
-          </Text>
+        {/* Featured Subjects */}
+        <View className="px-5 mt-2">
+          <Text className="text-xl font-bold text-gray-900 mb-3">Featured Subjects</Text>
           <View className="flex-row flex-wrap justify-between">
             {subjects.slice(0, 4).map((subject) => (
               <SubjectCard
@@ -274,13 +252,10 @@ export default function HomeDashboard() {
                 lessons={subject.lessonsCount}
                 icon={
                   <Text className="text-white text-xl">
-                    {subject.iconName === "Calculator"
-                      ? "⊞"
-                      : subject.iconName === "Atom"
-                        ? "⚛"
-                        : subject.iconName === "BookOpen"
-                          ? "📖"
-                          : "🏛️"}
+                    {subject.iconName === "Calculator" ? "⊞"
+                      : subject.iconName === "Atom" ? "⚛"
+                      : subject.iconName === "BookOpen" ? "📖"
+                      : "🏛️"}
                   </Text>
                 }
                 bgColor={subject.color}
@@ -289,30 +264,30 @@ export default function HomeDashboard() {
           </View>
         </View>
 
-        {/* ── Recent Uploads ── */}
+        {/* Recent Uploads — shows REAL local PDFs */}
         <View className="px-5 mt-2">
           <View className="flex-row justify-between items-center mb-2">
-            <Text className="text-xl font-bold text-gray-900">
-              My Recent Uploads
-            </Text>
-            <TouchableOpacity onPress={handleUploadFile}>
-              <Text className="text-purple-600 font-medium text-sm">
-                + Upload More
-              </Text>
+            <Text className="text-xl font-bold text-gray-900">My Recent Uploads</Text>
+            <TouchableOpacity onPress={handleUploadMore}>
+              <Text className="text-purple-600 font-medium text-sm">+ Upload</Text>
             </TouchableOpacity>
           </View>
 
           <View className="bg-white rounded-2xl px-4 shadow-sm">
-            <UploadItem
-              icon={<FileIcon />}
-              title="History Notes Ch.4"
-              meta="PDF • Uploaded 2h ago"
-            />
-            <UploadItem
-              icon={<ImageIcon />}
-              title="Algebra Formulas"
-              meta="Image • Uploaded 1d ago"
-            />
+            {recentUploads.length === 0 ? (
+              <View className="py-6 items-center">
+                <Text className="text-gray-400 text-sm">No uploads yet</Text>
+                <TouchableOpacity onPress={handleUploadMore} className="mt-2">
+                  <Text className="text-purple-600 font-semibold text-sm">
+                    Upload your first PDF →
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              recentUploads.map((pdf) => (
+                <UploadItem key={pdf.id} pdf={pdf} onPress={() => handleViewPDF(pdf)} />
+              ))
+            )}
           </View>
         </View>
       </ScrollView>
