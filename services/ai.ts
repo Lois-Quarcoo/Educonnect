@@ -61,6 +61,18 @@ export const generateTutorResponse = async (
 ): Promise<ChatMessage> => {
   console.log("AI Service called with:", newMessageText);
 
+  // Temporarily disable API calls due to leaked API key
+  // Use improved fallback system instead
+  console.log("Using improved fallback response system");
+  return {
+    id: Date.now().toString(),
+    role: "ai",
+    text: generateFallbackResponse(newMessageText),
+    suggestions: generateContextualSuggestions(newMessageText),
+  };
+
+  // Original API code (will be re-enabled when new API key is available)
+  /*
   if (!API_KEY) {
     console.log("No API key found, using fallback");
     return {
@@ -71,18 +83,10 @@ export const generateTutorResponse = async (
     };
   }
 
-  // For now, always use fallback to ensure it works
-  console.log("Using fallback response system");
-  return {
-    id: Date.now().toString(),
-    role: "ai",
-    text: generateFallbackResponse(newMessageText),
-    suggestions: generateContextualSuggestions(newMessageText),
-  };
-
-  // Original API code (commented out for now)
-  /*
   try {
+    // Apply rate limiting
+    await waitForRateLimit();
+
     const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
     const context = conversationHistory
@@ -99,6 +103,8 @@ Your teaching style:
 - Ask follow-up questions to check understanding
 - Keep responses concise but thorough
 - Adapt to the student's level
+- ALWAYS provide helpful, educational answers to questions
+- NEVER just introduce yourself - always answer the actual question asked
 
 Here is the conversation history:
 ${context}
@@ -119,7 +125,21 @@ Tutor:`;
   } catch (error: any) {
     console.error("Gemini Error:", error);
 
-    // Always use fallback for now to ensure it works
+    // Handle quota exceeded errors
+    if (
+      error.message.includes("quota") ||
+      error.message.includes("429") ||
+      error.message.includes("Daily AI request limit")
+    ) {
+      return {
+        id: Date.now().toString(),
+        role: "ai",
+        text: generateFallbackResponse(newMessageText),
+        suggestions: generateContextualSuggestions(newMessageText),
+      };
+    }
+
+    // For other errors, still use fallback
     return {
       id: Date.now().toString(),
       role: "ai",
@@ -136,6 +156,22 @@ const generateFallbackResponse = (userMessage: string): string => {
 
   // Add debugging
   console.log("Using fallback response for:", userMessage);
+
+  // Greetings - provide helpful response instead of just introduction
+  if (
+    lower.includes("hi") ||
+    lower.includes("hello") ||
+    lower.includes("hey") ||
+    lower === "hi" ||
+    lower === "hello"
+  ) {
+    return "👋 Hi there! I'm Spark, your AI tutor ready to help you learn! I can assist with Math 📐, Science 🔬, History 📚, English ✍️, and more. What subject would you like to explore today?";
+  }
+
+  // Direct questions - provide actual answers
+  if (lower.includes("what is prohibited") || lower.includes("prohibited")) {
+    return "📋 In educational contexts, 'prohibited' typically means things that are not allowed in school or during exams. This could include: cheating, using unauthorized notes, electronic devices during tests, plagiarism, or bringing forbidden items to school. Always check your school's specific rules and code of conduct. Is there a specific situation you're asking about?";
+  }
 
   // Math fallback responses
   if (
@@ -216,8 +252,8 @@ const generateFallbackResponse = (userMessage: string): string => {
     return "💡 Learning is a journey! Break complex topics into smaller parts, ask lots of questions, and connect new ideas to what you already know. Everyone learns differently - find what works for you! What topic would you like to understand better?";
   }
 
-  // Default fallback
-  return "🚀 I'm Spark, your AI tutor! I can help with Math (📐), Science (🔬), History (📚), English (✍️), and more. While I'm using my backup knowledge system, I can still provide helpful explanations and guidance. What specific topic would you like to explore together?";
+  // Default fallback - more helpful
+  return "🚀 I'm Spark, your AI tutor! I can help with Math (📐), Science (🔬), History (📚), English (✍️), and more. I'm currently using my knowledge base to help you learn. What specific question or topic would you like to explore? I'm here to help you understand concepts better!";
 };
 
 const generateContextualSuggestions = (userMessage: string): string[] => {

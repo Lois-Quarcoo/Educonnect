@@ -1,12 +1,12 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as DocumentPicker from "expo-document-picker";
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 import { Alert } from "react-native";
 
 export interface PDFDocument {
   id: string;
   name: string;
-  uri: string;        // permanent file:// path inside documentDirectory
+  uri: string; // permanent file:// path inside documentDirectory
   size: number;
   uploadDate: string;
   subject?: string;
@@ -31,7 +31,11 @@ const pickSubject = (): Promise<string | null> =>
       "Which subject does this PDF belong to?",
       [
         ...SUBJECTS.map((s) => ({ text: s, onPress: () => resolve(s) })),
-        { text: "Cancel", style: "cancel" as const, onPress: () => resolve(null) },
+        {
+          text: "Cancel",
+          style: "cancel" as const,
+          onPress: () => resolve(null),
+        },
       ],
       { cancelable: true, onDismiss: () => resolve(null) },
     );
@@ -47,11 +51,14 @@ export class LocalPDFStorage {
 
   /** Permanent directory for this user's PDFs (created on first use). */
   private static async pdfDir(userId: string): Promise<string> {
-    const dir = `${FileSystem.documentDirectory}pdfs/${userId}/`;
+    const baseDir = FileSystem.documentDirectory || "";
+    const dir = `${baseDir}pdfs/${userId}/`;
+
     const info = await FileSystem.getInfoAsync(dir);
     if (!info.exists) {
       await FileSystem.makeDirectoryAsync(dir, { intermediates: true });
     }
+
     return dir;
   }
 
@@ -154,7 +161,9 @@ export class LocalPDFStorage {
       // Remove file (ignore error if already gone)
       try {
         await FileSystem.deleteAsync(target.uri, { idempotent: true });
-      } catch (_) {}
+      } catch {
+        // Ignore errors when file doesn't exist
+      }
 
       const updated = stored.filter((p) => p.id !== id);
       await AsyncStorage.setItem(

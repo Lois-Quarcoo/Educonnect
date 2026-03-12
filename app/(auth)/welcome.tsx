@@ -1,72 +1,66 @@
-import { View, Text, ImageBackground, Image, TouchableOpacity } from 'react-native'
-import React from 'react'
-import { SafeAreaView } from 'react-native-safe-area-context'
-import pick from "../../assets/images/image1.jpg"
-import learn from "../../assets/images/e-learning.png"
-import { BookOpenText, WifiOff } from 'lucide-react-native';
-import { Link } from 'expo-router'
+import { LinearGradient } from "expo-linear-gradient";
+import { Link } from "expo-router";
+import { BookOpen, Sparkles } from "lucide-react-native";
+import React from "react";
+import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+
 const Welcome = () => {
   return (
-    <ImageBackground
-      source={pick}
-      style={{ flex: 1 }}
-      resizeMode="cover"
+    <LinearGradient
+      colors={["#8B5CF6", "#06B6D4"]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 0, y: 1 }}
+      className="flex-1"
     >
-      {/* Dark overlay */}
-      <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }}>
-        <SafeAreaView className='flex-1'>
+      <SafeAreaView className="flex-1">
+        {/* Content Container */}
+        <View className="flex-1 justify-between items-center px-8 py-12">
+          {/* Top Section - Logo and Title */}
+          <View className="items-center mt-20">
+            {/* Logo Circle */}
+            <View className="w-32 h-32 bg-white rounded-full items-center justify-center mb-8 shadow-2xl">
+              <View className="relative">
+                <BookOpen size={48} color="#8B5CF6" />
+                <Sparkles
+                  size={20}
+                  color="#F97316"
+                  className="absolute -top-2 -right-2"
+                />
+              </View>
+            </View>
 
-          {/* Top section - image, no flex-1 so it only takes what it needs */}
-          <View className='items-center mt-20 mb-[10rem]'>
-             <BookOpenText color='white'
-              size={100}
-             />
+            {/* App Name */}
+            <Text className="text-4xl font-bold text-white mb-3 tracking-wide">
+              EduConnect
+            </Text>
+
+            {/* Tagline */}
+            <Text className="text-white/80 text-lg text-center">
+              Learn Smarter, Together
+            </Text>
           </View>
 
-          {/* White bottom section */}
-          <View className='flex-1 bg-white rounded-t-3xl px-8 pt-8 pb-10'>
-
-            {/* EDUCONNECT badge */}
-            <View className='flex-row items-center gap-2 mb-4 items-center'>
-              <BookOpenText size={16} color='#b45309' />
-              <Text className='text-amber-700 font-semibold tracking-widest text-xs '>
-                EDUCONNECT
-              </Text>
-            </View>
-
-            {/* Heading */}
-            <Text className='text-3xl font-bold text-gray-900 mb-3'>
-              Learn Anywhere.{'\n'}Grow Together.
-            </Text>
-
-            {/* Subtext */}
-            <Text className='text-gray-500 text-sm mb-6'>
-              Smart learning made for African classrooms, homes, and journeys in between.
-            </Text>
-
-            {/* Offline badge */}
-            <View className='flex-row items-center gap-2 mb-6'>
-              <WifiOff size={16} color='#6b7280' />
-              <Text className='text-gray-500 text-sm'>
-                Download lessons for offline learning
-              </Text>
-            </View>
-
-            {/* Get Started Button */}
+          {/* Bottom Section - Get Started Button */}
+          <View className="w-full items-center mb-8">
             <Link href="/(auth)/login" asChild>
-            <TouchableOpacity className='bg-amber-700 rounded-full py-4 items-center mt-10'>
-              <Text className='text-white font-bold text-base'>
-                Get Started
-              </Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                className="bg-white w-full py-4 rounded-full items-center shadow-lg active:scale-95 transition-transform"
+                style={{ elevation: 8 }}
+              >
+                <Text className="text-purple-600 font-bold text-lg">
+                  Get Started
+                </Text>
+              </TouchableOpacity>
             </Link>
 
+            {/* Loading Indicator */}
+            <ActivityIndicator size="small" color="#F97316" className="mt-6" />
           </View>
+        </View>
+      </SafeAreaView>
+    </LinearGradient>
+  );
+};
 
-        </SafeAreaView>
-      </View>
-    </ImageBackground>
-  )
-}
-
-export default Welcome
+export default Welcome;
