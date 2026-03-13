@@ -34,7 +34,9 @@ type TabType = "summary" | "study-guide" | "flashcards";
 
 const AIFeaturesScreen = () => {
   const { user } = useAuth();
-  const params = useLocalSearchParams<{
+
+  // ✅ FIX: destructure to primitives so useEffect deps are stable strings
+  const { uri, name, subject, size, uploadDate } = useLocalSearchParams<{
     uri: string;
     name: string;
     subject: string;
@@ -52,20 +54,20 @@ const AIFeaturesScreen = () => {
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [showCardBack, setShowCardBack] = useState(false);
 
-  // Initialize PDF document
+  // ✅ FIX: depend on individual primitive values, not the params object
   useEffect(() => {
-    if (params) {
+    if (uri) {
       const pdfDoc: PDFDocument = {
-        id: params.uri.split("/").pop() || "unknown",
-        name: params.name,
-        uri: params.uri,
-        size: parseInt(params.size) || 0,
-        uploadDate: params.uploadDate,
-        subject: params.subject,
+        id: uri.split("/").pop() || "unknown",
+        name,
+        uri,
+        size: parseInt(size) || 0,
+        uploadDate,
+        subject,
       };
       setPdf(pdfDoc);
     }
-  }, [params]);
+  }, [uri, name, subject, size, uploadDate]);
 
   // Load existing AI content
   useEffect(() => {
@@ -227,7 +229,7 @@ const AIFeaturesScreen = () => {
             </Text>
             {summary.keyPoints.map((point, index) => (
               <View key={index} className="flex-row items-start mb-2">
-                <Star size={14} color="#F59E0B" className="mt-0.5 mr-2" />
+                <Star size={14} color="#F59E0B" style={{ marginTop: 2, marginRight: 8 }} />
                 <Text className="text-gray-600 text-sm flex-1">{point}</Text>
               </View>
             ))}
@@ -312,7 +314,7 @@ const AIFeaturesScreen = () => {
           {studyGuide.sections.map((section, index) => (
             <View
               key={index}
-              className="mb-4 pb-4 border-b border-gray-100 last:border-b-0"
+              className="mb-4 pb-4 border-b border-gray-100"
             >
               <Text className="font-semibold text-gray-900 mb-2">
                 {index + 1}. {section.title}
@@ -464,7 +466,7 @@ const AIFeaturesScreen = () => {
 
           <TouchableOpacity
             onPress={() => setShowCardBack(!showCardBack)}
-            className="bg-gradient-to-br from-purple-500 to-blue-500 rounded-2xl p-6 min-h-[200px] justify-center items-center mb-4"
+            className="bg-purple-500 rounded-2xl p-6 min-h-[200px] justify-center items-center mb-4"
             activeOpacity={0.8}
           >
             <Text className="text-white text-center font-medium text-lg">
@@ -535,14 +537,14 @@ const AIFeaturesScreen = () => {
   // Tab navigation
   const renderTabButton = (
     type: TabType,
-    icon: any,
+    icon: React.ReactNode,
     label: string,
     color: string,
   ) => (
     <TouchableOpacity
       onPress={() => setActiveTab(type)}
       className={`flex-1 py-3 rounded-xl flex-row items-center justify-center ${
-        activeTab === type ? `${color}` : "bg-gray-100"
+        activeTab === type ? color : "bg-gray-100"
       }`}
     >
       {icon}
@@ -590,26 +592,26 @@ const AIFeaturesScreen = () => {
         <View className="flex-row space-x-2">
           {renderTabButton(
             "summary",
-            <Brain size={16} color="white" />,
+            <Brain size={16} color={activeTab === "summary" ? "white" : "#374151"} />,
             "Summary",
             "bg-blue-600",
           )}
           {renderTabButton(
             "study-guide",
-            <BookOpen size={16} color="white" />,
+            <BookOpen size={16} color={activeTab === "study-guide" ? "white" : "#374151"} />,
             "Study Guide",
             "bg-green-600",
           )}
           {renderTabButton(
             "flashcards",
-            <Flashlight size={16} color="white" />,
+            <Flashlight size={16} color={activeTab === "flashcards" ? "white" : "#374151"} />,
             "Flashcards",
             "bg-purple-600",
           )}
         </View>
       </View>
 
-      {/* Content */}
+      {/* Generating banner */}
       {generating && (
         <View className="bg-blue-50 border-b border-blue-200 px-4 py-3">
           <View className="flex-row items-center">

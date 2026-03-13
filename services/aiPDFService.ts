@@ -54,6 +54,8 @@ export class AIPDFService {
    */
   private static async extractPDFText(pdfUri: string): Promise<string> {
     try {
+      console.log("Extracting text from PDF:", pdfUri);
+
       // In a real app, you'd use libraries like:
       // - react-native-pdf-lib
       // - expo-pdf
@@ -61,6 +63,7 @@ export class AIPDFService {
 
       // For demo purposes, return mock content based on filename
       const filename = pdfUri.split("/").pop() || "document.pdf";
+      console.log("Filename:", filename);
 
       if (filename.includes("math")) {
         return `
@@ -168,14 +171,17 @@ export class AIPDFService {
     pdfName: string,
   ): Promise<PDFSummary> {
     try {
+      console.log("Generating summary for PDF:", { pdfId, pdfUri, pdfName });
+
       // Extract text from PDF
       const text = await this.extractPDFText(pdfUri);
+      console.log("Text extracted successfully, length:", text.length);
 
       // Simulate AI processing delay
       await new Promise((resolve) => setTimeout(resolve, 2000));
 
       // Generate summary (in real app, this would call an AI API)
-      const summary = this.generateMockSummary(text, pdfName);
+      const summary = this.generateMockSummary(text, pdfName, pdfId);
 
       // Save to storage
       await this.saveSummary(pdfId, summary);
@@ -183,13 +189,16 @@ export class AIPDFService {
       return summary;
     } catch (error) {
       console.error("Error generating summary:", error);
-      throw new Error("Failed to generate summary");
+      throw new Error(
+        `Failed to generate summary: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
     }
   }
 
   private static generateMockSummary(
     text: string,
     pdfName: string,
+    pdfId: string,
   ): PDFSummary {
     const wordCount = text.split(" ").length;
     const estimatedReadTime = Math.ceil(wordCount / 200); // Average reading speed
