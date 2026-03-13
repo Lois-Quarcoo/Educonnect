@@ -1,12 +1,12 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as DocumentPicker from "expo-document-picker";
-import * as FileSystem from "expo-file-system";
+import { Directory, File, Paths } from "expo-file-system";
 import { Alert } from "react-native";
 
 export interface PDFDocument {
   id: string;
   name: string;
-  uri: string;        // permanent file:// path inside documentDirectory
+  uri: string; // permanent file:// path inside documentDirectory
   size: number;
   uploadDate: string;
   subject?: string;
@@ -31,7 +31,11 @@ const pickSubject = (): Promise<string | null> =>
       "Which subject does this PDF belong to?",
       [
         ...SUBJECTS.map((s) => ({ text: s, onPress: () => resolve(s) })),
-        { text: "Cancel", style: "cancel" as const, onPress: () => resolve(null) },
+        {
+          text: "Cancel",
+          style: "cancel" as const,
+          onPress: () => resolve(null),
+        },
       ],
       { cancelable: true, onDismiss: () => resolve(null) },
     );
@@ -46,13 +50,14 @@ export class LocalPDFStorage {
   }
 
   /** Permanent directory for this user's PDFs (created on first use). */
-  private static async pdfDir(userId: string): Promise<string> {
-    const dir = `${FileSystem.documentDirectory}pdfs/${userId}/`;
-    const info = await FileSystem.getInfoAsync(dir);
-    if (!info.exists) {
-      await FileSystem.makeDirectoryAsync(dir, { intermediates: true });
-    }
-    return dir;
+  private static pdfDir(userId: string): Directory {
+    const baseDir = new Directory(Paths.document, "pdfs");
+    if (!baseDir.exists) baseDir.create();
+
+    const userDir = new Directory(baseDir, userId);
+    if (!userDir.exists) userDir.create();
+
+    return userDir;
   }
 
   // ── public methods ───────────────────────────────────────────────────────────
@@ -83,16 +88,18 @@ export class LocalPDFStorage {
       const asset = picked.assets[0];
 
       // 3. Copy to a permanent, user-scoped folder
-      const dir = await this.pdfDir(userId);
+      const dir = this.pdfDir(userId);
       const id = `pdf_${Date.now()}`;
-      const destUri = `${dir}${id}.pdf`;
-      await FileSystem.copyAsync({ from: asset.uri, to: destUri });
+
+      const sourceFile = new File(asset.uri);
+      const destFile = new File(dir, `${id}.pdf`);
+      sourceFile.copy(destFile);
 
       // 4. Build metadata & save
       const doc: PDFDocument = {
         id,
         name: asset.name,
-        uri: destUri,
+        uri: destFile.uri,
         size: asset.size ?? 0,
         uploadDate: new Date().toISOString(),
         subject,
@@ -153,8 +160,9 @@ export class LocalPDFStorage {
 
       // Remove file (ignore error if already gone)
       try {
-        await FileSystem.deleteAsync(target.uri, { idempotent: true });
-      } catch (_) {}
+        const file = new File(target.uri);
+        if (file.exists) file.delete();
+      } catch (_) { }
 
       const updated = stored.filter((p) => p.id !== id);
       await AsyncStorage.setItem(

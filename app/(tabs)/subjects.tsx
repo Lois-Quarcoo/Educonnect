@@ -32,12 +32,12 @@ const CARD_WIDTH = (width - 48) / 2;
 const getIcon = (iconName: string, size: number, color: string) => {
   switch (iconName) {
     case "Calculator": return <Calculator size={size} color={color} />;
-    case "Atom":       return <Atom size={size} color={color} />;
-    case "BookOpen":   return <BookOpen size={size} color={color} />;
-    case "Landmark":   return <Landmark size={size} color={color} />;
-    case "Globe":      return <Globe size={size} color={color} />;
-    case "Zap":        return <Zap size={size} color={color} />;
-    default:           return <BookOpen size={size} color={color} />;
+    case "Atom": return <Atom size={size} color={color} />;
+    case "BookOpen": return <BookOpen size={size} color={color} />;
+    case "Landmark": return <Landmark size={size} color={color} />;
+    case "Globe": return <Globe size={size} color={color} />;
+    case "Zap": return <Zap size={size} color={color} />;
+    default: return <BookOpen size={size} color={color} />;
   }
 };
 
@@ -76,9 +76,8 @@ const SubjectCard = ({ subject, index }: { subject: APISubject; index: number })
 const FilterPill = ({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) => (
   <TouchableOpacity
     onPress={onPress}
-    className={`px-5 py-2.5 rounded-full mr-3 border ${
-      active ? "bg-[#1F2937] border-[#1F2937]" : "bg-white border-gray-200 shadow-sm"
-    }`}
+    className={`px-5 py-2.5 rounded-full mr-3 border ${active ? "bg-[#1F2937] border-[#1F2937]" : "bg-white border-gray-200 shadow-sm"
+      }`}
   >
     <Text className={`font-bold text-sm ${active ? "text-white" : "text-gray-600"}`}>{label}</Text>
   </TouchableOpacity>
@@ -100,6 +99,46 @@ export default function Subjects() {
     setIsLoading(true);
     try {
       const data = await fetchSubjects();
+
+      if (user) {
+        const localPdfs = await LocalPDFStorage.getAllPDFs(user._id);
+        const localSubjectsMap = new Map<string, APISubject>();
+
+        localPdfs.forEach(pdf => {
+          if (!pdf.subject) return;
+          const subjectKey = pdf.subject;
+
+          if (!localSubjectsMap.has(subjectKey)) {
+            localSubjectsMap.set(subjectKey, {
+              id: subjectKey.toLowerCase(),
+              title: subjectKey,
+              iconName: "Folder",
+              color: "#4B5563",
+              progress: 0,
+              lessonsCount: 0,
+              videosCount: 0,
+              quizzesCount: 0,
+            });
+          }
+          const subj = localSubjectsMap.get(subjectKey)!;
+          subj.lessonsCount += 1;
+        });
+
+        const apiSubjectTitles = new Set(data.map(s => s.title.toLowerCase()));
+
+        for (const [title, localSubj] of localSubjectsMap.entries()) {
+          if (!apiSubjectTitles.has(title.toLowerCase())) {
+            data.push(localSubj);
+            apiSubjectTitles.add(title.toLowerCase());
+          } else {
+            const existing = data.find(s => s.title.toLowerCase() === title.toLowerCase());
+            if (existing) {
+              existing.lessonsCount += localSubj.lessonsCount;
+            }
+          }
+        }
+      }
+
       setSubjects(data);
     } catch (e) {
       console.error(e);

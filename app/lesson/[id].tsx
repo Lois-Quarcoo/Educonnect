@@ -1,20 +1,22 @@
-import React, { useState, useEffect } from 'react';
-import { View, ActivityIndicator } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import FloatingAIButton from '@/components/FloatingAIButton';
+import LessonsView from '@/components/lesson/LessonsView';
+import QuizzesView from '@/components/lesson/QuizzesView';
 import SubjectHeader from '@/components/lesson/SubjectHeader';
 import SubjectTabs, { TabType } from '@/components/lesson/SubjectTabs';
-import LessonsView from '@/components/lesson/LessonsView';
 import VideosView from '@/components/lesson/VideosView';
-import QuizzesView from '@/components/lesson/QuizzesView';
-import FloatingAIButton from '@/components/FloatingAIButton';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { fetchSubjectById, fetchQuizzesBySubject, fetchVideosBySubject, Subject as APISubject, Quiz as APIQuiz, VideoLesson as APIVideo } from '@/services/api';
+import { useAuth } from '@/hooks/useAuth';
+import { Quiz as APIQuiz, Subject as APISubject, VideoLesson as APIVideo, fetchQuizzesBySubject, fetchSubjectById, fetchVideosBySubject } from '@/services/api';
+import { LocalPDFStorage } from '@/services/localPDFStorage';
+import { useLocalSearchParams } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 
 export default function SubjectScreen() {
   const { id } = useLocalSearchParams();
   const subjectId = (id as string) || 'math';
-  
+  const { user } = useAuth();
+
   const [subject, setSubject] = useState<APISubject | null>(null);
   const [quizzes, setQuizzes] = useState<APIQuiz[]>([]);
   const [videos, setVideos] = useState<APIVideo[]>([]);
@@ -33,7 +35,27 @@ export default function SubjectScreen() {
         fetchQuizzesBySubject(subjectId),
         fetchVideosBySubject(subjectId)
       ]);
-      setSubject(subjData || null);
+
+      let finalSubject = subjData || null;
+
+      if (!finalSubject && user) {
+        const localPdfs = await LocalPDFStorage.getAllPDFs(user._id);
+        const localMatching = localPdfs.find(p => p.subject?.toLowerCase() === subjectId.toLowerCase());
+        if (localMatching && localMatching.subject) {
+          finalSubject = {
+            id: subjectId,
+            title: localMatching.subject,
+            iconName: "Folder",
+            color: "#4B5563",
+            progress: 0,
+            lessonsCount: localPdfs.filter(p => p.subject === localMatching.subject).length,
+            videosCount: 0,
+            quizzesCount: 0,
+          };
+        }
+      }
+
+      setSubject(finalSubject);
       setQuizzes(quizData);
       setVideos(vidData);
     } catch (e) {
@@ -47,45 +69,44 @@ export default function SubjectScreen() {
     if (isLoading) {
       return (
         <View className="flex-1 items-center justify-center p-8">
-           <ActivityIndicator size="large" color={subject?.color || "#6B4EFF"} />
+          <ActivityIndicator size="large" color={subject?.color || "#6B4EFF"} />
         </View>
       );
     }
-    
+
     if (!subject) return null;
 
     switch (activeTab) {
       case 'Lessons':
-        // For lessons we can leave the mock view for now or adapt it. We focus on Quizzes/Videos.
-        return <Animated.View entering={FadeIn.duration(300)} className="flex-1"><LessonsView subjectId={subject.id} /></Animated.View>;
+        return <Animated.View entering={FadeIn.duration(300)} className="flex-1"><LessonsView subjectId={subject.id} subjectTitle={subject.title} /></Animated.View>;
       case 'Videos':
         return <Animated.View entering={FadeIn.duration(300)} className="flex-1"><VideosView videos={videos} color={subject.color} /></Animated.View>;
       case 'Quizzes':
         return <Animated.View entering={FadeIn.duration(300)} className="flex-1"><QuizzesView quizzes={quizzes} color={subject.color} /></Animated.View>;
       default:
-        return <LessonsView subjectId={subject.id} />;
+        return <LessonsView subjectId={subject.id} subjectTitle={subject.title} />;
     }
   };
 
   return (
     <View className="flex-1 bg-[#FAFAFA]">
-      <SubjectHeader 
-        title={subject?.title || 'Loading...'} 
-        progress={subject?.progress || 0} 
-        color={subject?.color || '#333'} 
+      <SubjectHeader
+        title={subject?.title || 'Loading...'}
+        progress={subject?.progress || 0}
+        color={subject?.color || '#333'}
       />
-      
+
       <SubjectTabs activeTab={activeTab} onChangeTab={setActiveTab} />
-      
+
       <View className="flex-1 relative">
-         {renderContent()}
-         {subject && (
-           <FloatingAIButton 
-             subjectName={subject.title} 
-             color={subject.color}
-             onPress={() => console.log('Ask AI pressed')} 
-           />
-         )}
+        {renderContent()}
+        {subject && (
+          <FloatingAIButton
+            subjectName={subject.title}
+            color={subject.color}
+            onPress={() => console.log('Ask AI pressed')}
+          />
+        )}
       </View>
     </View>
   );
