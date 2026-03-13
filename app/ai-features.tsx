@@ -1,36 +1,31 @@
 import { useAuth } from "@/hooks/useAuth";
-import {
-    AIPDFService,
-    FlashcardSet,
-    PDFSummary,
-    StudyGuide,
-} from "@/services/aiPDFService";
+import { AIPDFService, PDFSummary, StudyGuide } from "@/services/aiPDFService";
 import { PDFDocument } from "@/services/localPDFStorage";
 import { router, useLocalSearchParams } from "expo-router";
 import {
-    BookOpen,
-    Brain,
-    ChevronLeft,
-    Flashlight,
-    RefreshCw,
-    Star,
-    Zap,
+  BookOpen,
+  Brain,
+  ChevronLeft,
+  Flashlight,
+  RefreshCw,
+  Star,
+  Zap,
 } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    Dimensions,
-    ScrollView,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const { width } = Dimensions.get("window");
 
-type TabType = "summary" | "study-guide" | "flashcards";
+type TabType = "summary" | "study-guide" | "quiz";
 
 const AIFeaturesScreen = () => {
   const { user } = useAuth();
@@ -48,11 +43,12 @@ const AIFeaturesScreen = () => {
   const [activeTab, setActiveTab] = useState<TabType>("summary");
   const [summary, setSummary] = useState<PDFSummary | null>(null);
   const [studyGuide, setStudyGuide] = useState<StudyGuide | null>(null);
-  const [flashcards, setFlashcards] = useState<FlashcardSet | null>(null);
+  const [quiz, setQuiz] = useState<QuizSet | null>(null);
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState<TabType | null>(null);
-  const [currentCardIndex, setCurrentCardIndex] = useState(0);
-  const [showCardBack, setShowCardBack] = useState(false);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [selectedAnswers, setSelectedAnswers] = useState<number[]>([]);
+  const [showResults, setShowResults] = useState(false);
 
   // ✅ FIX: depend on individual primitive values, not the params object
   useEffect(() => {
@@ -75,16 +71,16 @@ const AIFeaturesScreen = () => {
 
     const loadAIContent = async () => {
       try {
-        const [existingSummary, existingStudyGuide, existingFlashcards] =
+        const [existingSummary, existingStudyGuide, existingQuiz] =
           await Promise.all([
             AIPDFService.getSummaryForPDF(pdf.id),
             AIPDFService.getStudyGuideForPDF(pdf.id),
-            AIPDFService.getFlashcardsForPDF(pdf.id),
+            AIPDFService.getQuizForPDF(pdf.id),
           ]);
 
         setSummary(existingSummary);
         setStudyGuide(existingStudyGuide);
-        setFlashcards(existingFlashcards);
+        setQuiz(existingQuiz);
       } catch (error) {
         console.error("Error loading AI content:", error);
       }
@@ -124,16 +120,19 @@ const AIFeaturesScreen = () => {
             "Study guide has been created successfully!",
           );
           break;
-        case "flashcards":
-          const newFlashcards = await AIPDFService.generateFlashcards(
+        case "quiz":
+          const newQuiz = await AIPDFService.generateQuiz(
             pdf.id,
             pdf.uri,
             pdf.name,
           );
-          setFlashcards(newFlashcards);
+          setQuiz(newQuiz);
+          setSelectedAnswers([]);
+          setShowResults(false);
+          setCurrentQuestionIndex(0);
           Alert.alert(
-            "✅ Flashcards Generated",
-            "Flashcards have been created successfully!",
+            "✅ Quiz Generated",
+            "Quiz has been created successfully!",
           );
           break;
       }
@@ -229,7 +228,11 @@ const AIFeaturesScreen = () => {
             </Text>
             {summary.keyPoints.map((point, index) => (
               <View key={index} className="flex-row items-start mb-2">
-                <Star size={14} color="#F59E0B" style={{ marginTop: 2, marginRight: 8 }} />
+                <Star
+                  size={14}
+                  color="#F59E0B"
+                  style={{ marginTop: 2, marginRight: 8 }}
+                />
                 <Text className="text-gray-600 text-sm flex-1">{point}</Text>
               </View>
             ))}
@@ -312,10 +315,7 @@ const AIFeaturesScreen = () => {
           </View>
 
           {studyGuide.sections.map((section, index) => (
-            <View
-              key={index}
-              className="mb-4 pb-4 border-b border-gray-100"
-            >
+            <View key={index} className="mb-4 pb-4 border-b border-gray-100">
               <Text className="font-semibold text-gray-900 mb-2">
                 {index + 1}. {section.title}
               </Text>
@@ -381,116 +381,275 @@ const AIFeaturesScreen = () => {
     );
   };
 
-  const renderFlashcardsTab = () => {
-    if (!flashcards) {
+  const renderQuizTab = () => {
+    if (!quiz) {
       return (
         <View className="flex-1 justify-center items-center px-6">
           <Flashlight size={56} color="#D1D5DB" />
           <Text className="text-gray-500 text-lg font-semibold mt-4 mb-2">
-            No Flashcards Yet
+            No Quiz Yet
           </Text>
           <Text className="text-gray-400 text-sm text-center mb-6">
-            Create flashcards to test your knowledge and improve retention
+            Generate a quiz to test your understanding of the material
           </Text>
           <TouchableOpacity
-            onPress={() => generateContent("flashcards")}
+            onPress={() => generateContent("quiz")}
             disabled={generating !== null}
             className={`px-6 py-3 rounded-xl flex-row items-center ${
-              generating === "flashcards" ? "bg-gray-300" : "bg-purple-600"
+              generating === "quiz" ? "bg-gray-300" : "bg-purple-600"
             }`}
           >
-            {generating === "flashcards" ? (
+            {generating === "quiz" ? (
               <ActivityIndicator size="small" color="white" />
             ) : (
               <Flashlight size={18} color="white" />
             )}
             <Text className="text-white font-semibold ml-2">
-              {generating === "flashcards"
-                ? "Generating..."
-                : "Create Flashcards"}
+              {generating === "quiz" ? "Generating..." : "Generate Quiz"}
             </Text>
           </TouchableOpacity>
         </View>
       );
     }
 
-    const currentCard = flashcards.cards[currentCardIndex];
+    const currentQuestion = quiz.questions[currentQuestionIndex];
+    const progress = ((currentQuestionIndex + 1) / quiz.questions.length) * 100;
+
+    const handleAnswerSelect = (answerIndex: number) => {
+      const newAnswers = [...selectedAnswers];
+      newAnswers[currentQuestionIndex] = answerIndex;
+      setSelectedAnswers(newAnswers);
+
+      // Auto-advance to next question after selecting answer
+      if (currentQuestionIndex < quiz.questions.length - 1) {
+        setTimeout(() => {
+          setCurrentQuestionIndex(currentQuestionIndex + 1);
+        }, 500);
+      } else {
+        // Show results when quiz is complete
+        setShowResults(true);
+      }
+    };
+
+    const calculateScore = () => {
+      let correct = 0;
+      selectedAnswers.forEach((answer, index) => {
+        if (answer === quiz.questions[index].correctAnswer) {
+          correct++;
+        }
+      });
+      return correct;
+    };
+
+    if (showResults) {
+      const score = calculateScore();
+      const percentage = Math.round((score / quiz.questions.length) * 100);
+
+      return (
+        <View className="flex-1 px-4">
+          <View className="bg-white rounded-2xl p-6 mb-4 shadow-sm border border-gray-100">
+            <View className="items-center mb-6">
+              <Text className="text-3xl font-bold text-gray-900 mb-2">
+                {percentage}%
+              </Text>
+              <Text className="text-lg text-gray-600">
+                You got {score} out of {quiz.questions.length} correct
+              </Text>
+            </View>
+
+            <View className="mb-6">
+              <Text className="font-semibold text-gray-900 mb-3">
+                Review Answers:
+              </Text>
+              {quiz.questions.map((question, index) => {
+                const isCorrect =
+                  selectedAnswers[index] === question.correctAnswer;
+                return (
+                  <View key={index} className="mb-3 p-3 bg-gray-50 rounded-lg">
+                    <Text className="font-medium text-gray-900 mb-2">
+                      Q{index + 1}: {question.question}
+                    </Text>
+                    <Text
+                      className={`text-sm mb-1 ${isCorrect ? "text-green-600" : "text-red-600"}`}
+                    >
+                      Your answer:{" "}
+                      {question.options[selectedAnswers[index]] ||
+                        "Not answered"}
+                    </Text>
+                    {!isCorrect && (
+                      <Text className="text-sm text-green-600">
+                        Correct answer:{" "}
+                        {question.options[question.correctAnswer]}
+                      </Text>
+                    )}
+                    <Text className="text-xs text-gray-500 mt-1">
+                      {question.explanation}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+
+            <TouchableOpacity
+              onPress={() => {
+                setSelectedAnswers([]);
+                setCurrentQuestionIndex(0);
+                setShowResults(false);
+              }}
+              className="bg-purple-600 px-6 py-3 rounded-xl"
+            >
+              <Text className="text-white font-semibold text-center">
+                Retake Quiz
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      );
+    }
 
     return (
       <View className="flex-1 px-4">
         <View className="bg-white rounded-2xl p-4 mb-4 shadow-sm border border-gray-100">
           <View className="flex-row items-center justify-between mb-3">
-            <Text className="text-lg font-bold text-gray-900">
-              🗂️ Flashcards
-            </Text>
+            <Text className="text-lg font-bold text-gray-900">� Quiz</Text>
             <TouchableOpacity
-              onPress={() => generateContent("flashcards")}
+              onPress={() => generateContent("quiz")}
               disabled={generating !== null}
               className={`p-2 rounded-lg ${
-                generating === "flashcards" ? "bg-gray-100" : "bg-purple-50"
+                generating === "quiz" ? "bg-gray-100" : "bg-purple-50"
               }`}
             >
               <RefreshCw
                 size={16}
-                color={generating === "flashcards" ? "#9CA3AF" : "#9333EA"}
+                color={generating === "quiz" ? "#9CA3AF" : "#9333EA"}
               />
             </TouchableOpacity>
           </View>
 
-          <View className="flex-row justify-between items-center mb-3">
-            <Text className="text-sm text-gray-500">
-              Card {currentCardIndex + 1} of {flashcards.cards.length}
-            </Text>
+          {/* Progress Bar */}
+          <View className="mb-4">
+            <View className="flex-row justify-between items-center mb-1">
+              <Text className="text-sm text-gray-600">
+                Question {currentQuestionIndex + 1} of {quiz.questions.length}
+              </Text>
+              <Text className="text-sm text-gray-600">
+                {Math.round(progress)}%
+              </Text>
+            </View>
+            <View className="h-2 bg-gray-200 rounded-full">
+              <View
+                className="h-2 bg-purple-600 rounded-full"
+                style={{ width: `${progress}%` }}
+              />
+            </View>
+          </View>
+
+          {/* Question */}
+          <View className="mb-4">
             <View
-              className={`px-2 py-0.5 rounded-full ${
-                currentCard.difficulty === "Easy"
+              className={`px-2 py-1 rounded-full self-start mb-2 ${
+                currentQuestion.difficulty === "Easy"
                   ? "bg-green-100"
-                  : currentCard.difficulty === "Medium"
+                  : currentQuestion.difficulty === "Medium"
                     ? "bg-yellow-100"
                     : "bg-red-100"
               }`}
             >
               <Text
                 className={`text-xs font-semibold ${
-                  currentCard.difficulty === "Easy"
+                  currentQuestion.difficulty === "Easy"
                     ? "text-green-700"
-                    : currentCard.difficulty === "Medium"
+                    : currentQuestion.difficulty === "Medium"
                       ? "text-yellow-700"
                       : "text-red-700"
                 }`}
               >
-                {currentCard.difficulty}
+                {currentQuestion.difficulty}
               </Text>
             </View>
+            <Text className="text-lg font-semibold text-gray-900 mb-4">
+              {currentQuestion.question}
+            </Text>
+
+            {/* Answer Options */}
+            {currentQuestion.type === "multiple-choice" && (
+              <View className="space-y-2">
+                {currentQuestion.options.map((option, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    onPress={() => handleAnswerSelect(index)}
+                    className={`p-4 rounded-xl border-2 ${
+                      selectedAnswers[currentQuestionIndex] === index
+                        ? "border-purple-600 bg-purple-50"
+                        : "border-gray-200 bg-white"
+                    }`}
+                  >
+                    <Text
+                      className={`font-medium ${
+                        selectedAnswers[currentQuestionIndex] === index
+                          ? "text-purple-700"
+                          : "text-gray-700"
+                      }`}
+                    >
+                      {option}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+
+            {currentQuestion.type === "true-false" && (
+              <View className="flex-row space-x-3">
+                {currentQuestion.options.map((option, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    onPress={() => handleAnswerSelect(index)}
+                    className={`flex-1 p-4 rounded-xl border-2 ${
+                      selectedAnswers[currentQuestionIndex] === index
+                        ? "border-purple-600 bg-purple-50"
+                        : "border-gray-200 bg-white"
+                    }`}
+                  >
+                    <Text
+                      className={`font-medium text-center ${
+                        selectedAnswers[currentQuestionIndex] === index
+                          ? "text-purple-700"
+                          : "text-gray-700"
+                      }`}
+                    >
+                      {option}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+
+            {currentQuestion.type === "short-answer" && (
+              <View className="p-4 bg-gray-50 rounded-xl">
+                <Text className="text-gray-600 text-center">
+                  Short answer questions require manual review. In a full
+                  implementation, this would include a text input field.
+                </Text>
+              </View>
+            )}
           </View>
 
-          <TouchableOpacity
-            onPress={() => setShowCardBack(!showCardBack)}
-            className="bg-purple-500 rounded-2xl p-6 min-h-[200px] justify-center items-center mb-4"
-            activeOpacity={0.8}
-          >
-            <Text className="text-white text-center font-medium text-lg">
-              {showCardBack ? currentCard.back : currentCard.front}
-            </Text>
-            <Text className="text-white/80 text-sm mt-3">
-              {showCardBack ? "Tap to see question" : "Tap to see answer"}
-            </Text>
-          </TouchableOpacity>
-
-          <View className="flex-row justify-between items-center">
+          {/* Navigation */}
+          <View className="flex-row justify-between">
             <TouchableOpacity
               onPress={() => {
-                setCurrentCardIndex(Math.max(0, currentCardIndex - 1));
-                setShowCardBack(false);
+                if (currentQuestionIndex > 0) {
+                  setCurrentQuestionIndex(currentQuestionIndex - 1);
+                }
               }}
-              disabled={currentCardIndex === 0}
+              disabled={currentQuestionIndex === 0}
               className={`px-4 py-2 rounded-lg ${
-                currentCardIndex === 0 ? "bg-gray-100" : "bg-blue-100"
+                currentQuestionIndex === 0 ? "bg-gray-100" : "bg-blue-100"
               }`}
             >
               <Text
                 className={`text-sm font-medium ${
-                  currentCardIndex === 0 ? "text-gray-400" : "text-blue-700"
+                  currentQuestionIndex === 0 ? "text-gray-400" : "text-blue-700"
                 }`}
               >
                 Previous
@@ -498,34 +657,29 @@ const AIFeaturesScreen = () => {
             </TouchableOpacity>
 
             <TouchableOpacity
-              onPress={() => setShowCardBack(!showCardBack)}
-              className="px-4 py-2 bg-purple-100 rounded-lg"
-            >
-              <Text className="text-sm font-medium text-purple-700">Flip</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
               onPress={() => {
-                setCurrentCardIndex(
-                  Math.min(flashcards.cards.length - 1, currentCardIndex + 1),
-                );
-                setShowCardBack(false);
+                if (currentQuestionIndex < quiz.questions.length - 1) {
+                  setCurrentQuestionIndex(currentQuestionIndex + 1);
+                } else {
+                  setShowResults(true);
+                }
               }}
-              disabled={currentCardIndex === flashcards.cards.length - 1}
               className={`px-4 py-2 rounded-lg ${
-                currentCardIndex === flashcards.cards.length - 1
-                  ? "bg-gray-100"
+                currentQuestionIndex === quiz.questions.length - 1
+                  ? "bg-green-100"
                   : "bg-blue-100"
               }`}
             >
               <Text
                 className={`text-sm font-medium ${
-                  currentCardIndex === flashcards.cards.length - 1
-                    ? "text-gray-400"
+                  currentQuestionIndex === quiz.questions.length - 1
+                    ? "text-green-700"
                     : "text-blue-700"
                 }`}
               >
-                Next
+                {currentQuestionIndex === quiz.questions.length - 1
+                  ? "Finish"
+                  : "Next"}
               </Text>
             </TouchableOpacity>
           </View>
@@ -592,20 +746,29 @@ const AIFeaturesScreen = () => {
         <View className="flex-row space-x-2">
           {renderTabButton(
             "summary",
-            <Brain size={16} color={activeTab === "summary" ? "white" : "#374151"} />,
+            <Brain
+              size={16}
+              color={activeTab === "summary" ? "white" : "#374151"}
+            />,
             "Summary",
             "bg-blue-600",
           )}
           {renderTabButton(
             "study-guide",
-            <BookOpen size={16} color={activeTab === "study-guide" ? "white" : "#374151"} />,
+            <BookOpen
+              size={16}
+              color={activeTab === "study-guide" ? "white" : "#374151"}
+            />,
             "Study Guide",
             "bg-green-600",
           )}
           {renderTabButton(
-            "flashcards",
-            <Flashlight size={16} color={activeTab === "flashcards" ? "white" : "#374151"} />,
-            "Flashcards",
+            "quiz",
+            <Flashlight
+              size={16}
+              color={activeTab === "quiz" ? "white" : "#374151"}
+            />,
+            "Quiz",
             "bg-purple-600",
           )}
         </View>
@@ -625,7 +788,7 @@ const AIFeaturesScreen = () => {
 
       {activeTab === "summary" && renderSummaryTab()}
       {activeTab === "study-guide" && renderStudyGuideTab()}
-      {activeTab === "flashcards" && renderFlashcardsTab()}
+      {activeTab === "quiz" && renderQuizTab()}
     </SafeAreaView>
   );
 };

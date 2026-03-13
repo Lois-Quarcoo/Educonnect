@@ -40,10 +40,26 @@ export interface FlashcardSet {
   generatedAt: string;
 }
 
+export interface QuizSet {
+  id: string;
+  pdfId: string;
+  title: string;
+  questions: {
+    question: string;
+    options: string[];
+    correctAnswer: number;
+    explanation: string;
+    difficulty: "Easy" | "Medium" | "Hard";
+    type: "multiple-choice" | "true-false" | "short-answer";
+  }[];
+  generatedAt: string;
+}
+
 export class AIPDFService {
   private static readonly SUMMARY_KEY = "ai_summaries";
   private static readonly STUDY_GUIDE_KEY = "ai_study_guides";
   private static readonly FLASHCARDS_KEY = "ai_flashcards";
+  private static readonly QUIZ_KEY = "ai_quizzes";
 
   // ── PDF Processing ───────────────────────────────────────────────────────
 
@@ -56,104 +72,23 @@ export class AIPDFService {
     try {
       console.log("Extracting text from PDF:", pdfUri);
 
-      // In a real app, you'd use libraries like:
-      // - react-native-pdf-lib
-      // - expo-pdf
-      // - or send the file to a backend service
+      // In a real implementation, you would use:
+      // 1. react-native-pdf-lib for local PDF parsing
+      // 2. Send file to backend AI service for processing
+      // 3. Use expo-pdf with text extraction
 
-      // For demo purposes, return mock content based on filename
+      // For now, return a placeholder that indicates real processing
       const filename = pdfUri.split("/").pop() || "document.pdf";
-      console.log("Filename:", filename);
+      console.log("Processing PDF:", filename);
 
-      if (filename.includes("math")) {
-        return `
-          Chapter 1: Introduction to Algebra
-          
-          Algebra is a branch of mathematics that deals with symbols and the rules for manipulating those symbols. 
-          In elementary algebra, those symbols (today written as Latin and Greek letters) represent quantities 
-          without fixed values, known as variables.
-          
-          Key Concepts:
-          1. Variables and Constants
-          2. Expressions and Equations
-          3. Linear Equations
-          4. Quadratic Equations
-          
-          Linear Equations:
-          A linear equation is an equation between two variables that gives a straight line when plotted on a graph.
-          The standard form is ax + by = c, where a, b, and c are constants.
-          
-          Example: 2x + 3y = 6
-          To solve for x when y = 0:
-          2x + 3(0) = 6
-          2x = 6
-          x = 3
-          
-          Quadratic Equations:
-          A quadratic equation is a second-degree polynomial equation in a single variable x.
-          The standard form is ax² + bx + c = 0, where a ≠ 0.
-          
-          Example: x² - 5x + 6 = 0
-          Factoring: (x - 2)(x - 3) = 0
-          Solutions: x = 2 or x = 3
-        `;
-      } else if (filename.includes("science")) {
-        return `
-          Chapter 1: The Scientific Method
-          
-          The scientific method is a systematic approach to understanding the natural world. 
-          It involves making observations, forming hypotheses, conducting experiments, and drawing conclusions.
-          
-          Steps of the Scientific Method:
-          1. Observation
-          2. Question
-          3. Hypothesis
-          4. Experiment
-          5. Analysis
-          6. Conclusion
-          
-          Observation: The starting point of scientific inquiry
-          Scientists observe phenomena in the natural world and ask questions about what they see.
-          
-          Hypothesis: A testable explanation
-          A hypothesis is an educated guess about how things work. It must be testable and falsifiable.
-          
-          Example Hypothesis: "Plants grow taller when exposed to more sunlight."
-          
-          Experiment: Testing the hypothesis
-          Design controlled experiments to test your hypothesis while minimizing confounding variables.
-          
-          Variables:
-          - Independent variable: What you change (sunlight exposure)
-          - Dependent variable: What you measure (plant height)
-          - Controlled variables: What you keep constant (water, soil, temperature)
-        `;
-      } else {
-        return `
-          Chapter 1: Introduction to the Subject
-          
-          This document covers fundamental concepts and principles that are essential for understanding 
-          the subject matter. The content is structured to provide a comprehensive overview while 
-          maintaining clarity and accessibility for learners at various levels.
-          
-          Main Topics:
-          1. Basic Definitions and Terminology
-          2. Historical Context and Development
-          3. Core Principles and Theories
-          4. Practical Applications and Examples
-          5. Advanced Topics and Future Directions
-          
-          Key Learning Objectives:
-          - Understand fundamental concepts
-          - Apply theoretical knowledge to practical problems
-          - Analyze and interpret complex information
-          - Evaluate different approaches and methodologies
-          - Synthesize information from multiple sources
-          
-          This comprehensive guide serves as both an introduction for beginners and a reference 
-          for advanced learners seeking to deepen their understanding of the subject.
-        `;
-      }
+      // TODO: Implement real PDF text extraction
+      // This would involve:
+      // - Reading the PDF file
+      // - Extracting text content
+      // - Processing with AI/NLP services
+
+      // Return placeholder content for demo
+      return `This is the extracted text content from ${filename}. In a real implementation, this would contain the actual text extracted from the PDF document using libraries like react-native-pdf-lib or by sending the file to a backend service for processing.`;
     } catch (error) {
       console.error("Error extracting PDF text:", error);
       throw new Error("Failed to extract text from PDF");
@@ -439,7 +374,126 @@ export class AIPDFService {
     return questions.slice(0, 5);
   }
 
-  // ── Flashcard Generation ───────────────────────────────────────────────────
+  // ── Quiz Generation ───────────────────────────────────────────────────────
+
+  /**
+   * Generate comprehensive quiz from the PDF content
+   */
+  static async generateQuiz(
+    pdfId: string,
+    pdfUri: string,
+    pdfName: string,
+  ): Promise<QuizSet> {
+    try {
+      const text = await this.extractPDFText(pdfUri);
+
+      // Simulate AI processing
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+
+      const quiz = this.generateMockQuiz(pdfId, pdfName, text);
+      await this.saveQuiz(quiz);
+
+      return quiz;
+    } catch (error) {
+      console.error("Error generating quiz:", error);
+      throw new Error("Failed to generate quiz");
+    }
+  }
+
+  private static generateMockQuiz(
+    pdfId: string,
+    pdfName: string,
+    text: string,
+  ): QuizSet {
+    const questions = this.generateQuizQuestions(text);
+
+    return {
+      id: `quiz_${Date.now()}`,
+      pdfId,
+      title: `Quiz: ${pdfName}`,
+      questions,
+      generatedAt: new Date().toISOString(),
+    };
+  }
+
+  private static generateQuizQuestions(text: string): QuizSet["questions"] {
+    const questions: QuizSet["questions"] = [];
+
+    // Generate multiple choice questions
+    questions.push({
+      question: "What is the main topic of this document?",
+      options: [
+        "Introduction to the subject",
+        "Advanced concepts",
+        "Historical background",
+        "Practical applications",
+      ],
+      correctAnswer: 0,
+      explanation:
+        "The document primarily serves as an introduction to the subject matter.",
+      difficulty: "Easy",
+      type: "multiple-choice",
+    });
+
+    questions.push({
+      question: "Which of the following are key learning objectives?",
+      options: [
+        "Only theoretical understanding",
+        "Understanding concepts and applying them to problems",
+        "Memorization without application",
+        "Advanced research methods",
+      ],
+      correctAnswer: 1,
+      explanation:
+        "The document emphasizes both understanding fundamental concepts and applying them to practical problems.",
+      difficulty: "Medium",
+      type: "multiple-choice",
+    });
+
+    // Generate true/false questions
+    questions.push({
+      question: "The document is suitable only for advanced learners.",
+      options: ["True", "False"],
+      correctAnswer: 1,
+      explanation:
+        "The document serves as both an introduction for beginners and a reference for advanced learners.",
+      difficulty: "Easy",
+      type: "true-false",
+    });
+
+    questions.push({
+      question: "The content includes practical applications and examples.",
+      options: ["True", "False"],
+      correctAnswer: 0,
+      explanation:
+        "One of the main topics covered is practical applications and examples.",
+      difficulty: "Easy",
+      type: "true-false",
+    });
+
+    // Generate short answer questions
+    questions.push({
+      question: "What are the main topics covered in this document?",
+      options: [],
+      correctAnswer: 0,
+      explanation:
+        "The main topics include basic definitions, historical context, core principles, practical applications, and advanced topics.",
+      difficulty: "Medium",
+      type: "short-answer",
+    });
+
+    questions.push({
+      question: "Who is the target audience for this comprehensive guide?",
+      options: [],
+      correctAnswer: 0,
+      explanation:
+        "The guide serves as both an introduction for beginners and a reference for advanced learners.",
+      difficulty: "Medium",
+      type: "short-answer",
+    });
+
+    return questions;
+  }
 
   /**
    * Generate flashcards from the PDF content
@@ -601,6 +655,39 @@ export class AIPDFService {
       return flashcardSets.find((fs) => fs.pdfId === pdfId) || null;
     } catch (error) {
       console.error("Error getting flashcards for PDF:", error);
+      return null;
+    }
+  }
+
+  // ── Quiz Storage Methods ─────────────────────────────────────────────────────
+
+  private static async saveQuiz(quiz: QuizSet): Promise<void> {
+    try {
+      const existing = await this.getQuizzes();
+      const filtered = existing.filter((q) => q.pdfId !== quiz.pdfId);
+      filtered.push(quiz);
+      await AsyncStorage.setItem(this.QUIZ_KEY, JSON.stringify(filtered));
+    } catch (error) {
+      console.error("Error saving quiz:", error);
+    }
+  }
+
+  static async getQuizzes(): Promise<QuizSet[]> {
+    try {
+      const stored = await AsyncStorage.getItem(this.QUIZ_KEY);
+      return stored ? JSON.parse(stored) : [];
+    } catch (error) {
+      console.error("Error getting quizzes:", error);
+      return [];
+    }
+  }
+
+  static async getQuizForPDF(pdfId: string): Promise<QuizSet | null> {
+    try {
+      const quizzes = await this.getQuizzes();
+      return quizzes.find((q) => q.pdfId === pdfId) || null;
+    } catch (error) {
+      console.error("Error getting quiz for PDF:", error);
       return null;
     }
   }
