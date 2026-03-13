@@ -2,30 +2,31 @@ import { useAuth } from "@/hooks/useAuth";
 import { LocalPDFStorage, PDFDocument } from "@/services/localPDFStorage";
 import { router } from "expo-router";
 import {
-  Clock,
-  FileText,
-  Folder,
-  Grid3X3,
-  HardDrive,
-  List,
-  Plus,
-  Search,
-  Trash2,
-  Upload,
-  X,
+    Brain,
+    Clock,
+    FileText,
+    Folder,
+    Grid3X3,
+    HardDrive,
+    List,
+    Plus,
+    Search,
+    Trash2,
+    Upload,
+    X,
 } from "lucide-react-native";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  Animated,
-  Dimensions,
-  RefreshControl,
-  ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    Animated,
+    Dimensions,
+    RefreshControl,
+    ScrollView,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -171,6 +172,21 @@ const MaterialsScreen = () => {
     });
   };
 
+  // ── AI Features ─────────────────────────────────────────────────────────────
+
+  const handleAIFeatures = (pdf: PDFDocument) => {
+    router.push({
+      pathname: "/ai-features",
+      params: {
+        uri: pdf.uri,
+        name: pdf.name,
+        subject: pdf.subject ?? "General",
+        size: String(pdf.size),
+        uploadDate: pdf.uploadDate,
+      },
+    });
+  };
+
   // ── effects ───────────────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -226,13 +242,22 @@ const MaterialsScreen = () => {
         </View>
       </View>
 
-      <TouchableOpacity
-        onPress={() => handleDelete(item.id, item.name)}
-        className="p-2 bg-red-50 rounded-xl"
-        hitSlop={8}
-      >
-        <Trash2 size={16} color="#DC2626" />
-      </TouchableOpacity>
+      <View className="flex-row items-center">
+        <TouchableOpacity
+          onPress={() => handleAIFeatures(item)}
+          className="p-2 bg-purple-50 rounded-xl mr-2"
+          hitSlop={8}
+        >
+          <Brain size={16} color="#9333EA" />
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => handleDelete(item.id, item.name)}
+          className="p-2 bg-red-50 rounded-xl"
+          hitSlop={8}
+        >
+          <Trash2 size={16} color="#DC2626" />
+        </TouchableOpacity>
+      </View>
     </TouchableOpacity>
   );
 
@@ -269,6 +294,13 @@ const MaterialsScreen = () => {
         hitSlop={8}
       >
         <X size={12} color="white" />
+      </TouchableOpacity>
+      <TouchableOpacity
+        onPress={() => handleAIFeatures(item)}
+        className="absolute top-2 left-2 p-1.5 bg-purple-500 rounded-full"
+        hitSlop={8}
+      >
+        <Brain size={12} color="white" />
       </TouchableOpacity>
     </TouchableOpacity>
   );

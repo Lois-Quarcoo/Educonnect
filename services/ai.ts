@@ -61,18 +61,6 @@ export const generateTutorResponse = async (
 ): Promise<ChatMessage> => {
   console.log("AI Service called with:", newMessageText);
 
-  // Temporarily disable API calls due to leaked API key
-  // Use improved fallback system instead
-  console.log("Using improved fallback response system");
-  return {
-    id: Date.now().toString(),
-    role: "ai",
-    text: generateFallbackResponse(newMessageText),
-    suggestions: generateContextualSuggestions(newMessageText),
-  };
-
-  // Original API code (will be re-enabled when new API key is available)
-  /*
   if (!API_KEY) {
     console.log("No API key found, using fallback");
     return {
@@ -147,7 +135,6 @@ Tutor:`;
       suggestions: generateContextualSuggestions(newMessageText),
     };
   }
-  */
 };
 
 // Generate fallback responses when API quota is exceeded

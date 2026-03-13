@@ -1,14 +1,14 @@
 import { LocalPDFStorage } from "@/services/localPDFStorage";
 import { router, useLocalSearchParams } from "expo-router";
-import { ChevronLeft, Share2 } from "lucide-react-native";
+import { Brain, ChevronLeft, Share2 } from "lucide-react-native";
 import React, { useState } from "react";
 import {
-  ActivityIndicator,
-  Platform,
-  Share,
-  Text,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Platform,
+    Share,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
@@ -30,7 +30,9 @@ export default function PDFViewer() {
   // For local file:// URIs we pass them directly to the WebView
   const pdfSource = uri?.startsWith("file://")
     ? { uri } // local file — WebView on React Native can open this directly
-    : { uri: `https://docs.google.com/gviewer?embedded=true&url=${encodeURIComponent(uri ?? "")}` };
+    : {
+        uri: `https://docs.google.com/gviewer?embedded=true&url=${encodeURIComponent(uri ?? "")}`,
+      };
 
   const handleShare = async () => {
     try {
@@ -95,10 +97,14 @@ export default function PDFViewer() {
               Could not render PDF
             </Text>
             <Text className="text-gray-400 text-sm text-center mb-4">
-              The file may have been moved or the viewer isn't supported on this device.
+              The file may have been moved or the viewer isn't supported on this
+              device.
             </Text>
             <View className="bg-gray-100 rounded-xl p-4 w-full">
-              <Text className="text-gray-600 text-xs font-mono" numberOfLines={3}>
+              <Text
+                className="text-gray-600 text-xs font-mono"
+                numberOfLines={3}
+              >
                 {uri}
               </Text>
             </View>
@@ -123,6 +129,30 @@ export default function PDFViewer() {
             scalesPageToFit={Platform.OS === "android"}
           />
         )}
+        <TouchableOpacity
+          onPress={() =>
+            router.push({
+              pathname: "/ai-features",
+              params: {
+                uri,
+                name,
+                subject: subject || "General",
+                size: String(0),
+                uploadDate: new Date().toISOString(),
+              },
+            })
+          }
+          className="absolute bottom-6 right-6 bg-purple-600 w-14 h-14 rounded-full shadow-lg items-center justify-center"
+          style={{
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.25,
+            shadowRadius: 3.84,
+            elevation: 5,
+          }}
+        >
+          <Brain size={24} color="white" />
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
