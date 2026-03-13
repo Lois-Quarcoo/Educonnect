@@ -39,7 +39,15 @@
           }
         }
       ],
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-file-system",
+        {
+          "ios": {
+            "documentsFolder": "EduConnect"
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

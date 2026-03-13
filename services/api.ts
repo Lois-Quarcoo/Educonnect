@@ -21,7 +21,6 @@ export const API_URL = getApiUrl();
 // ── Auth token storage ───────────────────────────────────────────────────────
 let globalToken: string | null = null;
 
-// FIX: accept null so logout properly clears the token
 export const setAuthToken = (token: string | null) => {
   globalToken = token || null;
 };
@@ -158,6 +157,7 @@ export interface VideoLesson {
   title: string;
   duration: string;
   thumbnailUrl?: string;
+  description?: string;
 }
 
 // ── Mock data ────────────────────────────────────────────────────────────────
@@ -281,7 +281,7 @@ const QUIZZES: Quiz[] = [
   {
     id: "science_cells",
     subjectId: "science",
-    title: "Cell Biology",
+    title: "Cell Biology Quiz",
     difficulty: "Medium",
     timeLimitMins: 12,
     questions: [
@@ -301,13 +301,333 @@ const QUIZZES: Quiz[] = [
       },
     ],
   },
+  {
+    id: "english_grammar",
+    subjectId: "english",
+    title: "Grammar & Writing Quiz",
+    difficulty: "Easy",
+    timeLimitMins: 10,
+    questions: [
+      {
+        id: "q1",
+        type: "multiple_choice",
+        text: "Which sentence is grammatically correct?",
+        options: [
+          "Me and him went to school.",
+          "He and I went to school.",
+          "Him and me went to school.",
+          "I and he went to school.",
+        ],
+        correctAnswerIndex: 1,
+      },
+      {
+        id: "q2",
+        type: "multiple_choice",
+        text: "What is the purpose of a thesis statement?",
+        options: [
+          "To summarize the essay",
+          "To state the central argument",
+          "To introduce evidence",
+          "To conclude the essay",
+        ],
+        correctAnswerIndex: 1,
+      },
+    ],
+  },
+  {
+    id: "history_ancient",
+    subjectId: "history",
+    title: "Ancient Civilizations Quiz",
+    difficulty: "Medium",
+    timeLimitMins: 12,
+    questions: [
+      {
+        id: "q1",
+        type: "multiple_choice",
+        text: "Where was the first civilization developed?",
+        options: ["Ancient Egypt", "Mesopotamia", "Indus Valley", "Ancient China"],
+        correctAnswerIndex: 1,
+      },
+      {
+        id: "q2",
+        type: "multiple_choice",
+        text: "Which writing system did the ancient Egyptians use?",
+        options: ["Cuneiform", "Latin", "Hieroglyphics", "Sanskrit"],
+        correctAnswerIndex: 2,
+      },
+    ],
+  },
+  {
+    id: "geography_world",
+    subjectId: "geography",
+    title: "World Geography Quiz",
+    difficulty: "Easy",
+    timeLimitMins: 10,
+    questions: [
+      {
+        id: "q1",
+        type: "multiple_choice",
+        text: "Which is the largest continent?",
+        options: ["Africa", "North America", "Asia", "Europe"],
+        correctAnswerIndex: 2,
+      },
+      {
+        id: "q2",
+        type: "multiple_choice",
+        text: "Which ocean is the largest?",
+        options: ["Atlantic", "Indian", "Pacific", "Arctic"],
+        correctAnswerIndex: 2,
+      },
+    ],
+  },
+  {
+    id: "physics_motion",
+    subjectId: "physics",
+    title: "Motion and Forces Quiz",
+    difficulty: "Medium",
+    timeLimitMins: 15,
+    questions: [
+      {
+        id: "q1",
+        type: "multiple_choice",
+        text: "What is the SI unit of force?",
+        options: ["Watt", "Joule", "Newton", "Pascal"],
+        correctAnswerIndex: 2,
+      },
+      {
+        id: "q2",
+        type: "multiple_choice",
+        text: "According to Newton's second law, F = ?",
+        options: ["mv", "ma", "m/a", "v/t"],
+        correctAnswerIndex: 1,
+      },
+    ],
+  },
 ];
 
+// ── Comprehensive video lessons for ALL subjects ──────────────────────────────
 const VIDEOS: VideoLesson[] = [
-  { id: "v1", subjectId: "math", title: "Introduction to Algebra", duration: "12:34" },
-  { id: "v2", subjectId: "math", title: "Solving Linear Equations", duration: "18:22" },
-  { id: "v3", subjectId: "science", title: "What is Photosynthesis?", duration: "10:05" },
-  { id: "v4", subjectId: "english", title: "Punctuation Made Easy", duration: "08:47" },
+  // Mathematics
+  {
+    id: "v_math_1",
+    subjectId: "math",
+    title: "Introduction to Algebra: Variables & Expressions",
+    duration: "12:34",
+    description: "Learn the fundamentals of algebra including variables, constants, and expressions.",
+  },
+  {
+    id: "v_math_2",
+    subjectId: "math",
+    title: "Solving Linear Equations Step by Step",
+    duration: "18:22",
+    description: "Master solving one-variable and two-variable linear equations.",
+  },
+  {
+    id: "v_math_3",
+    subjectId: "math",
+    title: "Geometry: Triangles, Circles, and Polygons",
+    duration: "20:45",
+    description: "Explore properties, area, and perimeter of common geometric shapes.",
+  },
+  {
+    id: "v_math_4",
+    subjectId: "math",
+    title: "Understanding Fractions and Decimals",
+    duration: "15:10",
+    description: "Practical guide to working with fractions, decimals, and percentages.",
+  },
+  {
+    id: "v_math_5",
+    subjectId: "math",
+    title: "Introduction to Probability and Statistics",
+    duration: "22:18",
+    description: "Learn mean, median, mode and basic probability calculations.",
+  },
+
+  // Science
+  {
+    id: "v_sci_1",
+    subjectId: "science",
+    title: "What is Photosynthesis? The Full Process Explained",
+    duration: "10:05",
+    description: "How plants convert sunlight, water, and CO₂ into glucose and oxygen.",
+  },
+  {
+    id: "v_sci_2",
+    subjectId: "science",
+    title: "Inside the Cell: Organelles and Their Functions",
+    duration: "16:30",
+    description: "Tour of the cell — from nucleus to mitochondria to cell membrane.",
+  },
+  {
+    id: "v_sci_3",
+    subjectId: "science",
+    title: "The Periodic Table: Understanding Elements",
+    duration: "14:22",
+    description: "How the periodic table is organized and what it tells us about elements.",
+  },
+  {
+    id: "v_sci_4",
+    subjectId: "science",
+    title: "Ecosystems and Food Chains Explained",
+    duration: "12:55",
+    description: "Energy flow from producers to consumers through trophic levels.",
+  },
+  {
+    id: "v_sci_5",
+    subjectId: "science",
+    title: "DNA, Genes, and Heredity: How Traits Are Passed Down",
+    duration: "19:41",
+    description: "Genetics fundamentals — from DNA structure to Mendel's laws.",
+  },
+
+  // English
+  {
+    id: "v_eng_1",
+    subjectId: "english",
+    title: "Punctuation Made Easy: Commas, Semicolons & More",
+    duration: "08:47",
+    description: "Master the rules of punctuation with clear examples.",
+  },
+  {
+    id: "v_eng_2",
+    subjectId: "english",
+    title: "How to Write a Powerful Essay: Structure & Argument",
+    duration: "21:15",
+    description: "From thesis to conclusion — build compelling, well-structured essays.",
+  },
+  {
+    id: "v_eng_3",
+    subjectId: "english",
+    title: "Literary Devices: Metaphor, Simile, Symbolism & More",
+    duration: "13:33",
+    description: "Identify and analyze figurative language in literature.",
+  },
+  {
+    id: "v_eng_4",
+    subjectId: "english",
+    title: "Parts of Speech: A Complete Visual Guide",
+    duration: "11:20",
+    description: "Understand nouns, verbs, adjectives, adverbs, and more.",
+  },
+  {
+    id: "v_eng_5",
+    subjectId: "english",
+    title: "Reading Between the Lines: Critical Analysis Skills",
+    duration: "17:08",
+    description: "Techniques for deep reading, annotation, and textual analysis.",
+  },
+
+  // History
+  {
+    id: "v_hist_1",
+    subjectId: "history",
+    title: "Ancient Egypt: Pyramids, Pharaohs, and Civilization",
+    duration: "19:44",
+    description: "Discover the world of ancient Egypt from the Nile to the pyramids.",
+  },
+  {
+    id: "v_hist_2",
+    subjectId: "history",
+    title: "The Mali Empire: Africa's Golden Age",
+    duration: "15:30",
+    description: "The rise of Mansa Musa and the great Mali Empire's golden era.",
+  },
+  {
+    id: "v_hist_3",
+    subjectId: "history",
+    title: "World War II: Causes, Events, and Aftermath",
+    duration: "24:11",
+    description: "A comprehensive look at the most destructive conflict in human history.",
+  },
+  {
+    id: "v_hist_4",
+    subjectId: "history",
+    title: "African Independence Movements of the 20th Century",
+    duration: "18:55",
+    description: "How African nations won independence and shaped the modern continent.",
+  },
+  {
+    id: "v_hist_5",
+    subjectId: "history",
+    title: "Ancient Greece: Democracy, Philosophy, and the Olympics",
+    duration: "16:22",
+    description: "The legacy of ancient Greece on modern civilization.",
+  },
+
+  // Geography
+  {
+    id: "v_geo_1",
+    subjectId: "geography",
+    title: "Earth's Structure: Layers, Plates, and Earthquakes",
+    duration: "14:19",
+    description: "Journey from Earth's crust to its core and understand plate tectonics.",
+  },
+  {
+    id: "v_geo_2",
+    subjectId: "geography",
+    title: "Climate Zones: Why Different Places Have Different Weather",
+    duration: "12:44",
+    description: "From tropical rainforests to polar tundra — understanding climate zones.",
+  },
+  {
+    id: "v_geo_3",
+    subjectId: "geography",
+    title: "World Rivers and Their Importance to Civilization",
+    duration: "11:35",
+    description: "The Nile, Amazon, Congo, and other great rivers and their role in history.",
+  },
+  {
+    id: "v_geo_4",
+    subjectId: "geography",
+    title: "Population Growth and Urbanization",
+    duration: "16:05",
+    description: "How and why cities grow, and the challenges of urbanization.",
+  },
+  {
+    id: "v_geo_5",
+    subjectId: "geography",
+    title: "Climate Change: Causes, Effects, and Solutions",
+    duration: "20:33",
+    description: "Understanding climate change and what geography tells us about the future.",
+  },
+
+  // Physics
+  {
+    id: "v_phys_1",
+    subjectId: "physics",
+    title: "Newton's Three Laws of Motion with Examples",
+    duration: "17:22",
+    description: "Understand inertia, F=ma, and action-reaction with real examples.",
+  },
+  {
+    id: "v_phys_2",
+    subjectId: "physics",
+    title: "Energy: Kinetic, Potential, and Conservation",
+    duration: "15:48",
+    description: "How energy transforms between forms and is always conserved.",
+  },
+  {
+    id: "v_phys_3",
+    subjectId: "physics",
+    title: "Waves and Sound: How We Hear the World",
+    duration: "13:15",
+    description: "Properties of waves, the Doppler effect, and how sound travels.",
+  },
+  {
+    id: "v_phys_4",
+    subjectId: "physics",
+    title: "Electricity: Circuits, Ohm's Law, and Power",
+    duration: "18:40",
+    description: "Build your understanding of circuits, voltage, current, and resistance.",
+  },
+  {
+    id: "v_phys_5",
+    subjectId: "physics",
+    title: "Projectile Motion: The Math Behind Flying Objects",
+    duration: "14:56",
+    description: "Kinematics equations applied to real-world projectile motion problems.",
+  },
 ];
 
 // ── Subject fetchers ─────────────────────────────────────────────────────────

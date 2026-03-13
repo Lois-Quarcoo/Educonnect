@@ -68,10 +68,30 @@ function RootLayoutContent() {
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-        {/* ✅ PDF viewer — full-screen, no header (viewer has its own) */}
+
+        {/* Subject / lesson screens — full-screen, no header (have their own) */}
+        <Stack.Screen name="lesson/[id]" options={{ headerShown: false }} />
+
+        {/* Quiz screen — full-screen with its own header */}
+        <Stack.Screen name="quiz/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="quiz/index" options={{ headerShown: false }} />
+
+        {/* PDF viewer — modal */}
         <Stack.Screen
           name="pdf-viewer"
           options={{ headerShown: false, presentation: "modal" }}
+        />
+
+        {/* AI features — modal */}
+        <Stack.Screen
+          name="ai-features"
+          options={{ headerShown: false, presentation: "modal" }}
+        />
+
+        {/* Video player */}
+        <Stack.Screen
+          name="video/[id]"
+          options={{ headerShown: false }}
         />
       </Stack>
       <StatusBar style="auto" />

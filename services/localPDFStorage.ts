@@ -1,10 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as DocumentPicker from "expo-document-picker";
-<<<<<<< HEAD
 import * as FileSystem from "expo-file-system/legacy";
-=======
-import { Directory, File, Paths } from "expo-file-system";
->>>>>>> 434ac7213f70fad800589cb2756169ae1103b6eb
 import { Alert } from "react-native";
 
 export interface PDFDocument {
@@ -54,10 +50,10 @@ export class LocalPDFStorage {
   }
 
   /** Permanent directory for this user's PDFs (created on first use). */
-<<<<<<< HEAD
   private static async pdfDir(userId: string): Promise<string> {
-    const baseDir = FileSystem.documentDirectory || "";
-    const dir = `${baseDir}pdfs/${userId}/`;
+    // Get the document directory using the legacy expo-file-system API
+    const documentDir = FileSystem.documentDirectory || "";
+    const dir = `${documentDir}pdfs/${userId}/`;
 
     const info = await FileSystem.getInfoAsync(dir);
     if (!info.exists) {
@@ -65,19 +61,7 @@ export class LocalPDFStorage {
     }
 
     return dir;
-=======
-  private static pdfDir(userId: string): Directory {
-    const baseDir = new Directory(Paths.document, "pdfs");
-    if (!baseDir.exists) baseDir.create();
-
-    const userDir = new Directory(baseDir, userId);
-    if (!userDir.exists) userDir.create();
-
-    return userDir;
->>>>>>> 434ac7213f70fad800589cb2756169ae1103b6eb
   }
-
-  // ── public methods ───────────────────────────────────────────────────────────
 
   /**
    * Open document picker → copy PDF to permanent storage → persist metadata.
@@ -97,7 +81,7 @@ export class LocalPDFStorage {
       // 2. File picker
       const picked = await DocumentPicker.getDocumentAsync({
         type: ["application/pdf"],
-        copyToCacheDirectory: false,
+        copyToCacheDirectory: true, // Change to true to ensure proper permissions
         multiple: false,
       });
 
@@ -105,18 +89,34 @@ export class LocalPDFStorage {
       const asset = picked.assets[0];
 
       // 3. Copy to a permanent, user-scoped folder
-      const dir = this.pdfDir(userId);
+      const dir = await this.pdfDir(userId);
       const id = `pdf_${Date.now()}`;
+      const destUri = `${dir}${id}.pdf`;
 
-      const sourceFile = new File(asset.uri);
-      const destFile = new File(dir, `${id}.pdf`);
-      sourceFile.copy(destFile);
+      // Copy file using the legacy API
+      try {
+        await FileSystem.copyAsync({ from: asset.uri, to: destUri });
+      } catch (copyError) {
+        console.error("File copy error:", copyError);
+        // Try alternative approach - read and write the file
+        try {
+          const fileContent = await FileSystem.readAsStringAsync(asset.uri, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+          await FileSystem.writeAsStringAsync(destUri, fileContent, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+        } catch (fallbackError) {
+          console.error("Fallback copy failed:", fallbackError);
+          throw new Error("Failed to copy PDF file. Please try again.");
+        }
+      }
 
       // 4. Build metadata & save
       const doc: PDFDocument = {
         id,
         name: asset.name,
-        uri: destFile.uri,
+        uri: destUri,
         size: asset.size ?? 0,
         uploadDate: new Date().toISOString(),
         subject,
@@ -177,16 +177,10 @@ export class LocalPDFStorage {
 
       // Remove file (ignore error if already gone)
       try {
-<<<<<<< HEAD
         await FileSystem.deleteAsync(target.uri, { idempotent: true });
       } catch {
         // Ignore errors when file doesn't exist
       }
-=======
-        const file = new File(target.uri);
-        if (file.exists) file.delete();
-      } catch (_) { }
->>>>>>> 434ac7213f70fad800589cb2756169ae1103b6eb
 
       const updated = stored.filter((p) => p.id !== id);
       await AsyncStorage.setItem(

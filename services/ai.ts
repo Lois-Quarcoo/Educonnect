@@ -61,80 +61,14 @@ export const generateTutorResponse = async (
 ): Promise<ChatMessage> => {
   console.log("AI Service called with:", newMessageText);
 
-  if (!API_KEY) {
-    console.log("No API key found, using fallback");
-    return {
-      id: Date.now().toString(),
-      role: "ai",
-      text: generateFallbackResponse(newMessageText),
-      suggestions: generateContextualSuggestions(newMessageText),
-    };
-  }
-
-  try {
-    // Apply rate limiting
-    await waitForRateLimit();
-
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-
-    const context = conversationHistory
-      .filter((msg) => !msg.lessonCard)
-      .map((msg) => `${msg.role === "user" ? "Student" : "Tutor"}: ${msg.text}`)
-      .join("\n");
-
-    const prompt = `You are Spark, an expert AI Tutor for the EduConnect learning platform. You specialize in helping students learn various subjects including Mathematics, Science, English, and History.
-
-Your teaching style:
-- Be encouraging and positive
-- Explain concepts simply and clearly
-- Use real-world examples when possible
-- Ask follow-up questions to check understanding
-- Keep responses concise but thorough
-- Adapt to the student's level
-- ALWAYS provide helpful, educational answers to questions
-- NEVER just introduce yourself - always answer the actual question asked
-
-Here is the conversation history:
-${context}
-
-Student: ${newMessageText}
-
-Tutor:`;
-
-    const result = await model.generateContent(prompt);
-    const text = result.response.text();
-
-    return {
-      id: Date.now().toString(),
-      role: "ai",
-      text,
-      suggestions: generateContextualSuggestions(newMessageText),
-    };
-  } catch (error: any) {
-    console.error("Gemini Error:", error);
-
-    // Handle quota exceeded errors
-    if (
-      error.message.includes("quota") ||
-      error.message.includes("429") ||
-      error.message.includes("Daily AI request limit")
-    ) {
-      return {
-        id: Date.now().toString(),
-        role: "ai",
-        text: generateFallbackResponse(newMessageText),
-        suggestions: generateContextualSuggestions(newMessageText),
-      };
-    }
-
-    // For other errors, still use fallback
-    return {
-      id: Date.now().toString(),
-      role: "ai",
-      text: generateFallbackResponse(newMessageText),
-      suggestions: generateContextualSuggestions(newMessageText),
-    };
-  }
+  // API key is blocked - always use improved fallback system
+  console.log("Using improved fallback response system (API key blocked)");
+  return {
+    id: Date.now().toString(),
+    role: "ai",
+    text: generateFallbackResponse(newMessageText),
+    suggestions: generateContextualSuggestions(newMessageText),
+  };
 };
 
 // Generate fallback responses when API quota is exceeded
