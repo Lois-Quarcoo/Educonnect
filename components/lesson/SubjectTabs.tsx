@@ -1,53 +1,55 @@
+import { BookOpen, PenLine, Video } from 'lucide-react-native';
 import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
-import { BookOpen, Video, PenLine } from 'lucide-react-native';
+import { Text, TouchableOpacity, View } from 'react-native';
 
 export type TabType = 'Lessons' | 'Videos' | 'Quizzes';
 
 interface SubjectTabsProps {
   activeTab: TabType;
   onChangeTab: (tab: TabType) => void;
+  color?: string;
 }
 
-export default function SubjectTabs({ activeTab, onChangeTab }: SubjectTabsProps) {
-  const tabs: { type: TabType; icon: React.ReactNode }[] = [
-    {
-      type: 'Lessons',
-      icon: <BookOpen size={18} color={activeTab === 'Lessons' ? '#6B4EFF' : '#9CA3AF'} />,
-    },
-    {
-      type: 'Videos',
-      icon: <Video size={18} color={activeTab === 'Videos' ? '#6B4EFF' : '#9CA3AF'} />,
-    },
-    {
-      type: 'Quizzes',
-      icon: <PenLine size={18} color={activeTab === 'Quizzes' ? '#6B4EFF' : '#9CA3AF'} />,
-    },
+const ACTIVE_COLOR = (color?: string) => color || '#7C3AED';
+
+export default function SubjectTabs({ activeTab, onChangeTab, color }: SubjectTabsProps) {
+  const activeCol = ACTIVE_COLOR(color);
+
+  const tabs: { type: TabType; icon: (active: boolean) => React.ReactNode }[] = [
+    { type: 'Lessons', icon: (a) => <BookOpen size={16} color={a ? activeCol : '#9CA3AF'} /> },
+    { type: 'Videos', icon: (a) => <Video size={16} color={a ? activeCol : '#9CA3AF'} /> },
+    { type: 'Quizzes', icon: (a) => <PenLine size={16} color={a ? activeCol : '#9CA3AF'} /> },
   ];
 
   return (
-    <View className="flex-row justify-between px-6 pt-6 pb-2 border-b border-gray-200">
-      {tabs.map((tab) => (
-        <TouchableOpacity
-          key={tab.type}
-          onPress={() => onChangeTab(tab.type)}
-          className="items-center pb-3 px-2 relative"
-        >
-          <View className="flex-row items-center gap-2">
-            {tab.icon}
-            <Text
-              className={`font-semibold text-base ${
-                activeTab === tab.type ? 'text-[#6B4EFF]' : 'text-gray-400'
-              }`}
-            >
-              {tab.type}
-            </Text>
-          </View>
-          {activeTab === tab.type && (
-            <View className="absolute bottom-[-10px] left-0 right-0 h-[3px] bg-[#6B4EFF] rounded-t-full" />
-          )}
-        </TouchableOpacity>
-      ))}
+    <View className="flex-row justify-between bg-white border-b border-gray-100 shadow-sm">
+      {tabs.map((tab) => {
+        const active = activeTab === tab.type;
+        return (
+          <TouchableOpacity
+            key={tab.type}
+            onPress={() => onChangeTab(tab.type)}
+            className="flex-1 items-center pb-3 pt-4 px-2 relative"
+            activeOpacity={0.75}
+          >
+            <View className="flex-row items-center gap-1.5">
+              {tab.icon(active)}
+              <Text
+                className="font-bold text-sm"
+                style={{ color: active ? activeCol : '#9CA3AF' }}
+              >
+                {tab.type}
+              </Text>
+            </View>
+            {active && (
+              <View
+                className="absolute bottom-0 left-4 right-4 h-[3px] rounded-t-full"
+                style={{ backgroundColor: activeCol }}
+              />
+            )}
+          </TouchableOpacity>
+        );
+      })}
     </View>
   );
 }

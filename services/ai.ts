@@ -1,23 +1,17 @@
 import Constants from "expo-constants";
 
 // ── Resolve the backend URL at runtime ───────────────────────────────────────
-// On a real device / Expo Go, Constants.expoConfig.hostUri gives the
-// Metro bundler host (your computer's LAN IP). We swap port 8081 → 5000.
 const getBackendUrl = (): string => {
-  // Allow explicit override via .env
   const envUrl = process.env.EXPO_PUBLIC_API_URL;
   if (envUrl) return envUrl;
 
-  // Expo Go / dev build: hostUri = "192.168.x.x:8081"
   const hostUri = Constants.expoConfig?.hostUri;
   if (hostUri && __DEV__) {
     const ip = hostUri.split(":")[0];
     return `http://${ip}:5000/api`;
   }
 
-  // Android emulator → host machine
   if (__DEV__) return "http://10.0.2.2:5000/api";
-
   return "https://your-production-url.com/api";
 };
 
@@ -45,12 +39,13 @@ export const generateTutorResponse = async (
 ): Promise<ChatMessage> => {
   console.log("[Spark] sending to:", `${BACKEND_URL}/ai/chat`);
 
+  // Convert to the format the backend expects
   const messages = [
     ...conversationHistory
       .slice(-10)
       .filter((m) => m.role === "user" || m.role === "ai")
       .map((m) => ({
-        role: m.role === "user" ? "user" : "assistant",
+        role: m.role === "user" ? "user" : "model",
         content: m.text,
       })),
     { role: "user", content: newMessageText },
@@ -78,7 +73,7 @@ export const generateTutorResponse = async (
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ messages }),
-      signal: AbortSignal.timeout(60_000), // 60 seconds — Claude can be slow
+      signal: AbortSignal.timeout(60_000),
     });
 
     if (!response.ok) {

@@ -192,13 +192,13 @@ export default function Subjects() {
     loadSubjects();
   }, [loadSubjects]);
 
-  // If subjectId is provided, find and navigate to that specific subject
+  // If subjectId is provided, filter subjects to show only that specific one
   useEffect(() => {
     if (subjectId && subjects.length > 0) {
       const targetSubject = subjects.find((s) => s.id === subjectId);
       if (targetSubject) {
-        // Navigate to the specific subject's lesson page
-        router.push(`/lesson/${subjectId}`);
+        // Filter to show only the specific subject
+        setSubjects([targetSubject]);
       }
     }
   }, [subjectId, subjects]);

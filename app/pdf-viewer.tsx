@@ -1,14 +1,16 @@
 import { LocalPDFStorage } from "@/services/localPDFStorage";
 import { router, useLocalSearchParams } from "expo-router";
-import { Brain, ChevronLeft, Share2 } from "lucide-react-native";
+import * as Sharing from "expo-sharing";
+import { Brain, ChevronLeft, ExternalLink, FileText, Share2 } from "lucide-react-native";
 import React, { useState } from "react";
 import {
-    ActivityIndicator,
-    Platform,
-    Share,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Platform,
+  Share,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
@@ -28,17 +30,41 @@ export default function PDFViewer() {
   // Build URL for WebView
   // On iOS/Android we use Google Docs viewer as a fallback for local PDFs
   // For local file:// URIs we pass them directly to the WebView
+  const isAndroidLocal = Platform.OS === "android" && uri?.startsWith("file://");
+
   const pdfSource = uri?.startsWith("file://")
-    ? { uri } // local file — WebView on React Native can open this directly
+    ? { uri }
     : {
-        uri: `https://docs.google.com/gviewer?embedded=true&url=${encodeURIComponent(uri ?? "")}`,
-      };
+      uri: `https://docs.google.com/gviewer?embedded=true&url=${encodeURIComponent(uri ?? "")}`,
+    };
 
   const handleShare = async () => {
     try {
-      await Share.share({ title: name, url: uri });
+      if (Platform.OS === "android" && uri?.startsWith("file://")) {
+        const canShare = await Sharing.isAvailableAsync();
+        if (canShare) {
+          await Sharing.shareAsync(uri);
+        } else {
+          Alert.alert("Error", "Sharing is not available on this device.");
+        }
+      } else {
+        await Share.share({ title: name, url: uri });
+      }
     } catch (e) {
       console.error("Share failed:", e);
+    }
+  };
+
+  const handleOpenExternal = async () => {
+    try {
+      if (uri?.startsWith("file://")) {
+        await Sharing.shareAsync(uri);
+      } else {
+        // Fallback for web links
+        await Share.share({ url: uri });
+      }
+    } catch (e) {
+      console.error("Open external failed:", e);
     }
   };
 
@@ -90,7 +116,35 @@ export default function PDFViewer() {
           </View>
         )}
 
-        {error ? (
+        {isAndroidLocal ? (
+          <View className="flex-1 justify-center items-center px-8 bg-gray-50">
+            <View className="w-20 h-20 bg-blue-100 rounded-3xl items-center justify-center mb-6">
+              <FileText size={40} color="#3B82F6" />
+            </View>
+            <Text className="text-gray-900 font-bold text-xl text-center mb-2">
+              Local PDF for Android
+            </Text>
+            <Text className="text-gray-500 text-center mb-8 leading-5">
+              Android's built-in viewer cannot display local files directly. Click below to open it in your preferred PDF app.
+            </Text>
+
+            <TouchableOpacity
+              onPress={handleOpenExternal}
+              className="bg-blue-600 flex-row items-center px-8 py-4 rounded-2xl shadow-sm"
+              activeOpacity={0.8}
+            >
+              <ExternalLink size={20} color="white" />
+              <Text className="text-white font-bold ml-2 text-lg">Open PDF Viewer</Text>
+            </TouchableOpacity>
+
+            <View className="mt-12 p-4 bg-white rounded-2xl border border-gray-100 w-full">
+              <Text className="text-gray-400 text-xs font-mono uppercase tracking-widest mb-2">File Path</Text>
+              <Text className="text-gray-600 text-[10px] font-mono" numberOfLines={2}>
+                {uri}
+              </Text>
+            </View>
+          </View>
+        ) : error ? (
           <View className="flex-1 justify-center items-center px-6">
             <Text className="text-4xl mb-4">📄</Text>
             <Text className="text-gray-700 font-semibold text-lg mb-2">
@@ -108,6 +162,13 @@ export default function PDFViewer() {
                 {uri}
               </Text>
             </View>
+            <TouchableOpacity
+              onPress={handleOpenExternal}
+              className="mt-6 bg-gray-200 px-6 py-3 rounded-xl flex-row items-center"
+            >
+              <ExternalLink size={16} color="#374151" />
+              <Text className="text-gray-700 font-bold ml-2">Open Externally</Text>
+            </TouchableOpacity>
           </View>
         ) : (
           <WebView
