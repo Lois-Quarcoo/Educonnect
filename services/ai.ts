@@ -1,46 +1,29 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import Constants from "expo-constants";
 
-const API_KEY = "AIzaSyAE-WR8QZ3yBdj0UxBsWyGFeUFY2SNH80c";
-const genAI = new GoogleGenerativeAI(API_KEY);
+// ── Resolve the backend URL at runtime ───────────────────────────────────────
+// On a real device / Expo Go, Constants.expoConfig.hostUri gives the
+// Metro bundler host (your computer's LAN IP). We swap port 8081 → 5000.
+const getBackendUrl = (): string => {
+  // Allow explicit override via .env
+  const envUrl = process.env.EXPO_PUBLIC_API_URL;
+  if (envUrl) return envUrl;
 
-// Rate limiting to prevent quota exceeded errors
-let lastRequestTime = 0;
-const MIN_REQUEST_INTERVAL = 2000; // 2 seconds between requests
-const MAX_DAILY_REQUESTS = 50; // Conservative limit for free tier
-let dailyRequestCount = 0;
-let lastResetDate = new Date().getDate();
-
-// Check if we need to reset daily counter
-const checkDailyReset = () => {
-  const today = new Date().getDate();
-  if (today !== lastResetDate) {
-    dailyRequestCount = 0;
-    lastResetDate = today;
+  // Expo Go / dev build: hostUri = "192.168.x.x:8081"
+  const hostUri = Constants.expoConfig?.hostUri;
+  if (hostUri && __DEV__) {
+    const ip = hostUri.split(":")[0];
+    return `http://${ip}:5000/api`;
   }
+
+  // Android emulator → host machine
+  if (__DEV__) return "http://10.0.2.2:5000/api";
+
+  return "https://your-production-url.com/api";
 };
 
-// Rate limiting function
-const waitForRateLimit = async (): Promise<void> => {
-  checkDailyReset();
+const BACKEND_URL = getBackendUrl();
 
-  // Check daily limit
-  if (dailyRequestCount >= MAX_DAILY_REQUESTS) {
-    throw new Error("Daily AI request limit reached. Try again tomorrow!");
-  }
-
-  // Check rate limit between requests
-  const now = Date.now();
-  const timeSinceLastRequest = now - lastRequestTime;
-
-  if (timeSinceLastRequest < MIN_REQUEST_INTERVAL) {
-    const waitTime = MIN_REQUEST_INTERVAL - timeSinceLastRequest;
-    await new Promise((resolve) => setTimeout(resolve, waitTime));
-  }
-
-  lastRequestTime = Date.now();
-  dailyRequestCount++;
-};
-
+// ── Types ─────────────────────────────────────────────────────────────────────
 export type ChatMessage = {
   id: string;
   role: "user" | "ai";
@@ -55,303 +38,98 @@ export type ChatMessage = {
   };
 };
 
+// ── Main function ─────────────────────────────────────────────────────────────
 export const generateTutorResponse = async (
   conversationHistory: ChatMessage[],
   newMessageText: string,
 ): Promise<ChatMessage> => {
-  console.log("AI Service called with:", newMessageText);
+  console.log("[Spark] sending to:", `${BACKEND_URL}/ai/chat`);
 
-  // API key is blocked - always use improved fallback system
-  console.log("Using improved fallback response system (API key blocked)");
-  return {
-    id: Date.now().toString(),
-    role: "ai",
-    text: generateFallbackResponse(newMessageText),
-    suggestions: generateContextualSuggestions(newMessageText),
-  };
-};
+  const messages = [
+    ...conversationHistory
+      .slice(-10)
+      .filter((m) => m.role === "user" || m.role === "ai")
+      .map((m) => ({
+        role: m.role === "user" ? "user" : "assistant",
+        content: m.text,
+      })),
+    { role: "user", content: newMessageText },
+  ];
 
-// Generate fallback responses when API quota is exceeded
-const generateFallbackResponse = (userMessage: string): string => {
-  const lower = userMessage.toLowerCase();
-
-  // Add debugging
-  console.log("Using fallback response for:", userMessage);
-
-  // Greetings - provide helpful response instead of just introduction
-  if (
-    lower.includes("hi") ||
-    lower.includes("hello") ||
-    lower.includes("hey") ||
-    lower === "hi" ||
-    lower === "hello"
-  ) {
-    return "👋 Hi there! I'm Spark, your AI tutor ready to help you learn! I can assist with Math 📐, Science 🔬, History 📚, English ✍️, and more. What subject would you like to explore today?";
-  }
-
-  // Direct questions - provide actual answers
-  if (lower.includes("what is prohibited") || lower.includes("prohibited")) {
-    return "📋 In educational contexts, 'prohibited' typically means things that are not allowed in school or during exams. This could include: cheating, using unauthorized notes, electronic devices during tests, plagiarism, or bringing forbidden items to school. Always check your school's specific rules and code of conduct. Is there a specific situation you're asking about?";
-  }
-
-  // Math fallback responses
-  if (
-    lower.includes("math") ||
-    lower.includes("calculat") ||
-    lower.includes("equation") ||
-    lower.includes("algebra") ||
-    lower.includes("geometry") ||
-    lower.includes("solve")
-  ) {
-    if (lower.includes("algebra") || lower.includes("solve")) {
-      return "🧮 For algebra equations like 2x + 5 = 15: First, subtract 5 from both sides to get 2x = 10. Then divide both sides by 2 to get x = 5. Always isolate the variable by doing the opposite operation! Want to try another equation?";
-    }
-    if (lower.includes("geometry")) {
-      return "📐 Geometry is all about shapes and spaces! Key concepts: triangles have 180° total angles, circles use π (3.14159), and the Pythagorean theorem (a² + b² = c²) works for right triangles. What geometry topic are you studying?";
-    }
-    return "📐 Math is all about practice! Start with the basics, write down each step, and check your work. I can help with arithmetic, algebra, geometry, and more. What specific math problem are you working on?";
-  }
-
-  // Science fallback responses
-  if (
-    lower.includes("science") ||
-    lower.includes("experiment") ||
-    lower.includes("theory") ||
-    lower.includes("biology") ||
-    lower.includes("chemistry") ||
-    lower.includes("physics")
-  ) {
-    if (lower.includes("photosynthesis")) {
-      return "🌱 Photosynthesis is how plants make their food! They use sunlight, water, and carbon dioxide to create glucose (energy) and oxygen. It happens in the chloroplasts using chlorophyll (the green stuff). Pretty amazing how plants turn sunlight into energy!";
-    }
-    if (lower.includes("cell")) {
-      return "🔬 Cells are the building blocks of life! Animal cells have a nucleus, mitochondria (powerhouses), and cell membrane. Plant cells have those plus a cell wall and chloroplasts for photosynthesis. Each organelle has a specific job to keep the cell alive!";
-    }
-    if (lower.includes("chemistry")) {
-      return "⚗️ Chemistry studies matter and its changes! Key concepts: atoms (basic units), molecules (atoms bonded together), and chemical reactions (rearranging atoms). Water (H2O) is the most important molecule for life!";
-    }
-    return "🔬 Science helps us understand the world! Start with observations, form hypotheses, test them, and draw conclusions. I can help with biology, chemistry, physics, and more. What science topic interests you?";
-  }
-
-  // History fallback responses
-  if (
-    lower.includes("history") ||
-    lower.includes("when") ||
-    lower.includes("who") ||
-    lower.includes("war") ||
-    lower.includes("american") ||
-    lower.includes("world")
-  ) {
-    if (lower.includes("world war")) {
-      return "🌍 World War II (1939-1945) was a global conflict involving Allied powers (US, UK, USSR) vs Axis powers (Germany, Italy, Japan). It ended with the atomic bombings of Hiroshima and Nagasaki and shaped the modern world!";
-    }
-    return "📚 History tells the story of humanity! Understanding the past helps us make better decisions today. Focus on cause and effect, and remember that history is written by people with different perspectives. What historical period or event would you like to explore?";
-  }
-
-  // English fallback responses
-  if (
-    lower.includes("english") ||
-    lower.includes("grammar") ||
-    lower.includes("write") ||
-    lower.includes("essay") ||
-    lower.includes("read")
-  ) {
-    if (lower.includes("essay")) {
-      return "✍️ Essay writing structure: 1) Introduction with thesis statement, 2) Body paragraphs with evidence, 3) Conclusion that summarizes. Each paragraph should have a topic sentence and supporting details. Start with an outline!";
-    }
-    return "✍️ Good writing starts with clear thinking! Read widely, practice daily, and don't be afraid to revise. Grammar provides the structure, but your voice makes it unique. Need help with a specific writing topic or grammar rule?";
-  }
-
-  // General learning fallback
-  if (
-    lower.includes("help") ||
-    lower.includes("explain") ||
-    lower.includes("understand") ||
-    lower.includes("learn") ||
-    lower.includes("study")
-  ) {
-    return "💡 Learning is a journey! Break complex topics into smaller parts, ask lots of questions, and connect new ideas to what you already know. Everyone learns differently - find what works for you! What topic would you like to understand better?";
-  }
-
-  // Default fallback - more helpful
-  return "🚀 I'm Spark, your AI tutor! I can help with Math (📐), Science (🔬), History (📚), English (✍️), and more. I'm currently using my knowledge base to help you learn. What specific question or topic would you like to explore? I'm here to help you understand concepts better!";
-};
-
-const generateContextualSuggestions = (userMessage: string): string[] => {
-  const lower = userMessage.toLowerCase();
-
-  if (
-    lower.includes("math") ||
-    lower.includes("calculat") ||
-    lower.includes("equation")
-  )
-    return ["Show me the steps", "Give me another example", "Quiz me on this"];
-
-  if (
-    lower.includes("science") ||
-    lower.includes("experiment") ||
-    lower.includes("theory")
-  )
-    return [
-      "Explain the concept",
-      "Show me an example",
-      "What are the applications?",
-    ];
-
-  if (
-    lower.includes("history") ||
-    lower.includes("when") ||
-    lower.includes("who")
-  )
-    return [
-      "Tell me more details",
-      "What happened next?",
-      "How did this impact things?",
-    ];
-
-  if (
-    lower.includes("english") ||
-    lower.includes("grammar") ||
-    lower.includes("write")
-  )
-    return ["Show me examples", "Explain the rule", "Help me practice"];
-
-  if (
-    lower.includes("help") ||
-    lower.includes("explain") ||
-    lower.includes("understand")
-  )
-    return [
-      "Simplify it further",
-      "Use an analogy",
-      "Break it down step by step",
-    ];
-
-  return ["Tell me more", "Give me an example", "Quiz me on this"];
-};
-
-export const generateQuizQuestion = async (
-  topic: string,
-  difficulty: "easy" | "medium" | "hard" = "medium",
-): Promise<{
-  question: string;
-  options: string[];
-  correctAnswer: number;
-  explanation: string;
-}> => {
-  if (!API_KEY) throw new Error("AI service not available");
-
+  // ── Step 1: quick connectivity check ─────────────────────────────────────
   try {
-    // Apply rate limiting
-    await waitForRateLimit();
+    const ping = await fetch(`${BACKEND_URL}/health`, {
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!ping.ok) throw new Error("health check failed");
+  } catch {
+    console.warn("[Spark] backend unreachable at", BACKEND_URL);
+    return {
+      id: Date.now().toString(),
+      role: "ai",
+      text: `⚠️ I can't reach the EduConnect server right now.\n\nMake sure:\n1. Your backend is running (npm run dev)\n2. Your phone and computer are on the same Wi-Fi\n\nServer: ${BACKEND_URL}`,
+      suggestions: ["Try again"],
+    };
+  }
 
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+  // ── Step 2: actual AI request ─────────────────────────────────────────────
+  try {
+    const response = await fetch(`${BACKEND_URL}/ai/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messages }),
+      signal: AbortSignal.timeout(60_000), // 60 seconds — Claude can be slow
+    });
 
-    const prompt = `Generate a ${difficulty} multiple-choice question about ${topic} for a student.
-Format your response exactly like this:
-Question: [question text]
-A: [option A]
-B: [option B]
-C: [option C]
-D: [option D]
-Correct: [A/B/C/D]
-Explanation: [brief explanation]`;
-
-    const result = await model.generateContent(prompt);
-    const text = result.response.text();
-
-    const lines = text.split("\n");
-    const question =
-      lines
-        .find((l) => l.startsWith("Question:"))
-        ?.replace("Question:", "")
-        .trim() || "";
-    const options = lines
-      .filter((l) => /^[ABCD]:/.test(l))
-      .map((l) => l.substring(2).trim());
-    const correctLine = lines.find((l) => l.startsWith("Correct:"));
-    const correctAnswer = correctLine
-      ? ["A", "B", "C", "D"].indexOf(correctLine.replace("Correct:", "").trim())
-      : 0;
-    const explanation =
-      lines
-        .find((l) => l.startsWith("Explanation:"))
-        ?.replace("Explanation:", "")
-        .trim() || "";
-
-    return { question, options, correctAnswer, explanation };
-  } catch (error: any) {
-    console.error("Quiz generation error:", error);
-
-    // Handle quota exceeded errors
-    if (
-      error.message.includes("quota") ||
-      error.message.includes("429") ||
-      error.message.includes("Daily AI request limit")
-    ) {
-      // Return a fallback quiz question
-      const fallbackQuiz = generateFallbackQuiz(topic, difficulty);
-      return fallbackQuiz;
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error("[Spark] server error:", response.status, errText);
+      throw new Error(`Server responded with ${response.status}`);
     }
 
-    throw new Error("Failed to generate quiz question");
+    const data = await response.json();
+
+    if (!data.success || !data.reply) {
+      throw new Error("Empty reply from server");
+    }
+
+    return {
+      id: Date.now().toString(),
+      role: "ai",
+      text: data.reply,
+      suggestions: generateSuggestions(newMessageText),
+    };
+  } catch (error: any) {
+    const msg = error?.message || String(error);
+    console.error("[Spark] generateTutorResponse error:", msg);
+
+    const isTimeout = msg.includes("Abort") || msg.includes("timeout");
+
+    return {
+      id: Date.now().toString(),
+      role: "ai",
+      text: isTimeout
+        ? "That took too long — the AI is busy. Please try again. ⏱️"
+        : "Something went wrong. Please try again. 🔄",
+      suggestions: ["Try again", "Ask something else"],
+    };
   }
 };
 
-// Generate fallback quiz questions when API quota is exceeded
-const generateFallbackQuiz = (topic: string, difficulty: string) => {
-  const lower = topic.toLowerCase();
-
-  // Math fallback quizzes
-  if (
-    lower.includes("math") ||
-    lower.includes("algebra") ||
-    lower.includes("geometry")
-  ) {
-    return {
-      question: "What is the value of x in the equation 2x + 5 = 15?",
-      options: ["5", "10", "15", "20"],
-      correctAnswer: 0,
-      explanation:
-        "Subtract 5 from both sides: 2x = 10. Then divide by 2: x = 5.",
-    };
-  }
-
-  // Science fallback quizzes
-  if (
-    lower.includes("science") ||
-    lower.includes("biology") ||
-    lower.includes("chemistry")
-  ) {
-    return {
-      question: "What is the chemical formula for water?",
-      options: ["H2O", "CO2", "O2", "N2"],
-      correctAnswer: 0,
-      explanation:
-        "Water consists of two hydrogen atoms and one oxygen atom, making H2O.",
-    };
-  }
-
-  // History fallback quizzes
-  if (
-    lower.includes("history") ||
-    lower.includes("war") ||
-    lower.includes("american")
-  ) {
-    return {
-      question: "In which year did World War II end?",
-      options: ["1943", "1944", "1945", "1946"],
-      correctAnswer: 2,
-      explanation: "World War II ended in 1945 with the surrender of Japan.",
-    };
-  }
-
-  // Default fallback quiz
-  return {
-    question: `What is the capital of ${topic}?`,
-    options: ["Option A", "Option B", "Option C", "Option D"],
-    correctAnswer: 0,
-    explanation:
-      "This is a fallback question. Please try again later for a better quiz!",
-  };
+// ── Suggestion chips ──────────────────────────────────────────────────────────
+const generateSuggestions = (userMessage: string): string[] => {
+  const lower = userMessage.toLowerCase();
+  if (lower.match(/solve|equation|calculat|math|algebra|geometry/))
+    return ["Show me another example", "Explain the rule", "Quiz me on this"];
+  if (lower.match(/explain|what is|define|describe/))
+    return ["Give me an example", "Why is this important?", "Simplify it more"];
+  if (lower.match(/science|biology|chemistry|physics|cell|atom/))
+    return ["How does it work?", "Real-world application?", "Quiz me"];
+  if (lower.match(/history|when|who|ancient|war|empire/))
+    return ["Tell me more", "What happened next?", "How did this affect us?"];
+  if (lower.match(/english|essay|grammar|write|literature/))
+    return ["Show me an example", "Help me practise", "What are the rules?"];
+  if (lower.match(/geography|climate|country|continent|ocean/))
+    return ["Where on a map?", "Why does this happen?", "Give me a fact"];
+  return ["Tell me more", "Give an example", "Quiz me on this"];
 };

@@ -1,32 +1,32 @@
 import { useAuth } from "@/hooks/useAuth";
 import { LocalPDFStorage, PDFDocument } from "@/services/localPDFStorage";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import {
-    Brain,
-    Clock,
-    FileText,
-    Folder,
-    Grid3X3,
-    HardDrive,
-    List,
-    Plus,
-    Search,
-    Trash2,
-    Upload,
-    X,
+  Brain,
+  Clock,
+  FileText,
+  Folder,
+  Grid3X3,
+  HardDrive,
+  List,
+  Plus,
+  Search,
+  Trash2,
+  Upload,
+  X,
 } from "lucide-react-native";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    Animated,
-    Dimensions,
-    RefreshControl,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Animated,
+  Dimensions,
+  RefreshControl,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -41,11 +41,17 @@ const MaterialsScreen = () => {
   const [selectedSection, setSelectedSection] = useState<"cloud" | "local">(
     "local",
   );
-  const [selectedSubject, setSelectedSubject] = useState<string>("All");
   const [availableSubjects, setAvailableSubjects] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<"grid" | "list">("list");
   const fadeAnim = useRef(new Animated.Value(1)).current;
+
+  // Get subject from URL parameters
+  const { subject: urlSubject } = useLocalSearchParams<{ subject?: string }>();
+
+  const [selectedSubject, setSelectedSubject] = useState<string>(
+    urlSubject || "All",
+  );
 
   // ── helpers (always pass user._id) ───────────────────────────────────────
 

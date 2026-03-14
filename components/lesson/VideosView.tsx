@@ -1,12 +1,8 @@
 import React from "react";
 import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  RefreshControl,
+  View, Text, ScrollView, TouchableOpacity, Linking, Alert,
 } from "react-native";
-import { Play, CheckCircle2, Clock } from "lucide-react-native";
+import { Play, Clock, ExternalLink } from "lucide-react-native";
 import { VideoLesson } from "@/services/api";
 import Animated, { FadeInUp } from "react-native-reanimated";
 
@@ -14,6 +10,24 @@ interface VideosViewProps {
   videos: VideoLesson[];
   color: string;
 }
+
+const openVideo = async (video: VideoLesson) => {
+  // Build a YouTube search URL for the lesson title
+  const query = encodeURIComponent(`${video.title} lesson explained`);
+  const youtubeApp = `youtube://results?search_query=${query}`;
+  const youtubeBrowser = `https://www.youtube.com/results?search_query=${query}`;
+
+  try {
+    const canOpen = await Linking.canOpenURL(youtubeApp);
+    if (canOpen) {
+      await Linking.openURL(youtubeApp);
+    } else {
+      await Linking.openURL(youtubeBrowser);
+    }
+  } catch {
+    Alert.alert("Could not open video", "Please check your internet connection.");
+  }
+};
 
 export default function VideosView({ videos, color }: VideosViewProps) {
   const filters = ["All", "Short (<15m)", "Long (15m+)"];
@@ -32,7 +46,7 @@ export default function VideosView({ videos, color }: VideosViewProps) {
       showsVerticalScrollIndicator={false}
       contentContainerStyle={{ paddingBottom: 120 }}
     >
-      {/* Filters */}
+      {/* Filter pills */}
       <View className="flex-row px-5 mt-4 mb-5 gap-2">
         {filters.map((filter) => (
           <TouchableOpacity
@@ -48,9 +62,7 @@ export default function VideosView({ videos, color }: VideosViewProps) {
             }
           >
             <Text
-              className={`text-sm font-semibold ${
-                activeFilter === filter ? "" : "text-gray-500"
-              }`}
+              className={`text-sm font-semibold ${activeFilter === filter ? "" : "text-gray-500"}`}
               style={activeFilter === filter ? { color } : {}}
             >
               {filter}
@@ -69,10 +81,7 @@ export default function VideosView({ videos, color }: VideosViewProps) {
               <Play size={28} color={color} />
             </View>
             <Text className="text-gray-500 font-semibold text-base text-center">
-              No videos available yet
-            </Text>
-            <Text className="text-gray-400 text-sm text-center mt-1 px-8">
-              Check back soon — new video lessons are added regularly.
+              No videos match this filter
             </Text>
           </View>
         ) : (
@@ -83,40 +92,31 @@ export default function VideosView({ videos, color }: VideosViewProps) {
             >
               <TouchableOpacity
                 activeOpacity={0.88}
+                onPress={() => openVideo(video)}
                 className="bg-white rounded-2xl mb-5 shadow-sm overflow-hidden border border-gray-100"
               >
-                {/* Thumbnail area */}
+                {/* Thumbnail */}
                 <View
                   className="h-44 w-full relative justify-center items-center"
                   style={{ backgroundColor: color }}
                 >
-                  {/* Dark overlay for readability */}
                   <View className="absolute inset-0 bg-black/20" />
-
-                  {/* Play button */}
                   <View
                     className="w-14 h-14 rounded-full items-center justify-center border-2 border-white/60"
                     style={{ backgroundColor: "rgba(255,255,255,0.2)" }}
                   >
-                    <Play
-                      fill="white"
-                      color="white"
-                      size={22}
-                      style={{ marginLeft: 3 }}
-                    />
+                    <Play fill="white" color="white" size={22} style={{ marginLeft: 3 }} />
                   </View>
 
                   {/* Duration badge */}
                   <View className="absolute bottom-3 right-3 bg-black/70 px-2.5 py-1 rounded-lg">
-                    <View className="flex-row items-center gap-1">
+                    <View className="flex-row items-center" style={{ gap: 4 }}>
                       <Clock size={11} color="white" />
-                      <Text className="text-white text-xs font-bold">
-                        {video.duration}
-                      </Text>
+                      <Text className="text-white text-xs font-bold">{video.duration}</Text>
                     </View>
                   </View>
 
-                  {/* Video number badge */}
+                  {/* Lesson number */}
                   <View
                     className="absolute top-3 left-3 px-2 py-1 rounded-lg"
                     style={{ backgroundColor: color + "cc" }}
@@ -125,44 +125,39 @@ export default function VideosView({ videos, color }: VideosViewProps) {
                       Lesson {index + 1}
                     </Text>
                   </View>
+
+                  {/* YouTube badge */}
+                  <View className="absolute top-3 right-3 bg-red-600 px-2 py-1 rounded-lg">
+                    <Text className="text-white text-xs font-black">▶ YouTube</Text>
+                  </View>
                 </View>
 
-                {/* Info section */}
+                {/* Info */}
                 <View className="p-4">
-                  <Text
-                    className="text-gray-900 font-bold text-base mb-1"
-                    numberOfLines={2}
-                  >
+                  <Text className="text-gray-900 font-bold text-base mb-1" numberOfLines={2}>
                     {video.title}
                   </Text>
-
                   {video.description && (
-                    <Text
-                      className="text-gray-500 text-sm mb-3"
-                      numberOfLines={2}
-                    >
+                    <Text className="text-gray-500 text-sm mb-3" numberOfLines={2}>
                       {video.description}
                     </Text>
                   )}
-
                   <View className="flex-row items-center justify-between">
-                    <View className="flex-row items-center gap-2">
+                    <View className="flex-row items-center" style={{ gap: 8 }}>
                       <View
                         className="px-2 py-1 rounded-lg"
                         style={{ backgroundColor: color + "15" }}
                       >
-                        <Text
-                          className="text-xs font-bold uppercase tracking-wider"
-                          style={{ color }}
-                        >
+                        <Text className="text-xs font-bold uppercase tracking-wider" style={{ color }}>
                           EduConnect
                         </Text>
                       </View>
-                      <Text className="text-gray-400 text-xs">
-                        • HD Quality
-                      </Text>
+                      <Text className="text-gray-400 text-xs">• HD Quality</Text>
                     </View>
-                    <CheckCircle2 size={18} color="#D1D5DB" />
+                    <View className="flex-row items-center" style={{ gap: 4 }}>
+                      <ExternalLink size={14} color="#9CA3AF" />
+                      <Text className="text-gray-400 text-xs">Opens YouTube</Text>
+                    </View>
                   </View>
                 </View>
               </TouchableOpacity>

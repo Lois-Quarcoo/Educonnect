@@ -2,15 +2,15 @@ import { useAuth } from "@/hooks/useAuth";
 import { fetchSubjects, Subject } from "@/services/api";
 import { LocalPDFStorage, PDFDocument } from "@/services/localPDFStorage";
 import { router } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
-  Dimensions,
-  Image,
-  ScrollView,
-  StatusBar,
-  Text,
-  TouchableOpacity,
-  View,
+    Dimensions,
+    Image,
+    ScrollView,
+    StatusBar,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -61,11 +61,13 @@ const SubjectCard = ({
   lessons,
   icon,
   bgColor,
+  subjectId,
 }: {
   title: string;
   lessons: number;
   icon: React.ReactNode;
   bgColor: string;
+  subjectId: string;
 }) => (
   <TouchableOpacity
     className="rounded-2xl p-4 justify-between"
@@ -76,6 +78,13 @@ const SubjectCard = ({
       marginBottom: 12,
     }}
     activeOpacity={0.85}
+    onPress={() => {
+      // Navigate to subjects screen with the selected subject
+      router.push({
+        pathname: "/(tabs)/subjects",
+        params: { subjectId: subjectId },
+      });
+    }}
   >
     <View className="self-end w-9 h-9 rounded-xl bg-white/20 items-center justify-center">
       {icon}
@@ -88,7 +97,13 @@ const SubjectCard = ({
 );
 
 // ── Upload Item ────────────────────────────────────────────────────────────────
-const UploadItem = ({ pdf, onPress }: { pdf: PDFDocument; onPress: () => void }) => (
+const UploadItem = ({
+  pdf,
+  onPress,
+}: {
+  pdf: PDFDocument;
+  onPress: () => void;
+}) => (
   <TouchableOpacity
     onPress={onPress}
     className="flex-row items-center py-3.5 border-b border-gray-100"
@@ -116,7 +131,7 @@ export default function HomeDashboard() {
   const [recentUploads, setRecentUploads] = useState<PDFDocument[]>([]);
 
   // ✅ FIXED: load real local uploads for this user
-  const loadRecentUploads = async () => {
+  const loadRecentUploads = useCallback(async () => {
     if (!user) return;
     try {
       const pdfs = await LocalPDFStorage.getAllPDFs(user._id);
@@ -124,7 +139,7 @@ export default function HomeDashboard() {
     } catch (error) {
       console.error("Failed to load recent uploads:", error);
     }
-  };
+  }, [user]);
 
   useEffect(() => {
     const loadSubjects = async () => {
@@ -142,7 +157,7 @@ export default function HomeDashboard() {
 
   useEffect(() => {
     if (user) loadRecentUploads();
-  }, [user]);
+  }, [user, loadRecentUploads]);
 
   const formatLearningTime = (minutes: number) => {
     const hours = Math.floor(minutes / 60);
@@ -151,7 +166,12 @@ export default function HomeDashboard() {
   };
 
   const getUserInitials = (name: string) =>
-    name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
+    name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
 
   const handleViewPDF = (pdf: PDFDocument) => {
     router.push({
@@ -243,19 +263,25 @@ export default function HomeDashboard() {
 
         {/* Featured Subjects */}
         <View className="px-5 mt-2">
-          <Text className="text-xl font-bold text-gray-900 mb-3">Featured Subjects</Text>
+          <Text className="text-xl font-bold text-gray-900 mb-3">
+            Featured Subjects
+          </Text>
           <View className="flex-row flex-wrap justify-between">
             {subjects.slice(0, 4).map((subject) => (
               <SubjectCard
                 key={subject.id}
                 title={subject.title}
                 lessons={subject.lessonsCount}
+                subjectId={subject.id}
                 icon={
                   <Text className="text-white text-xl">
-                    {subject.iconName === "Calculator" ? "⊞"
-                      : subject.iconName === "Atom" ? "⚛"
-                      : subject.iconName === "BookOpen" ? "📖"
-                      : "🏛️"}
+                    {subject.iconName === "Calculator"
+                      ? "⊞"
+                      : subject.iconName === "Atom"
+                        ? "⚛"
+                        : subject.iconName === "BookOpen"
+                          ? "📖"
+                          : "🏛️"}
                   </Text>
                 }
                 bgColor={subject.color}
@@ -267,9 +293,13 @@ export default function HomeDashboard() {
         {/* Recent Uploads — shows REAL local PDFs */}
         <View className="px-5 mt-2">
           <View className="flex-row justify-between items-center mb-2">
-            <Text className="text-xl font-bold text-gray-900">My Recent Uploads</Text>
+            <Text className="text-xl font-bold text-gray-900">
+              My Recent Uploads
+            </Text>
             <TouchableOpacity onPress={handleUploadMore}>
-              <Text className="text-purple-600 font-medium text-sm">+ Upload</Text>
+              <Text className="text-purple-600 font-medium text-sm">
+                + Upload
+              </Text>
             </TouchableOpacity>
           </View>
 
@@ -285,7 +315,11 @@ export default function HomeDashboard() {
               </View>
             ) : (
               recentUploads.map((pdf) => (
-                <UploadItem key={pdf.id} pdf={pdf} onPress={() => handleViewPDF(pdf)} />
+                <UploadItem
+                  key={pdf.id}
+                  pdf={pdf}
+                  onPress={() => handleViewPDF(pdf)}
+                />
               ))
             )}
           </View>

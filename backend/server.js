@@ -9,6 +9,7 @@ dotenv.config();
 // Import routes
 const userRoutes = require("./routes/user");
 const authRoutes = require("./routes/auth");
+const aiRoutes = require("./routes/ai");
 
 // Initialize Express app
 const app = express();
@@ -26,6 +27,7 @@ mongoose
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/user", userRoutes);
+app.use("/api/ai", aiRoutes);
 
 // Health check endpoint
 app.get("/api/health", (req, res) => {

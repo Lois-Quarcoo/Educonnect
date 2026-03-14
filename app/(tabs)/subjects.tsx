@@ -1,27 +1,27 @@
 import { useAuth } from "@/hooks/useAuth";
 import { Subject as APISubject, fetchSubjects } from "@/services/api";
 import { LocalPDFStorage } from "@/services/localPDFStorage";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import {
-  Atom,
-  BookOpen,
-  Calculator,
-  Globe,
-  Landmark,
-  Plus,
-  Search,
-  Zap,
+    Atom,
+    BookOpen,
+    Calculator,
+    Globe,
+    Landmark,
+    Plus,
+    Search,
+    Zap,
 } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  Dimensions,
-  ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    Dimensions,
+    ScrollView,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import Animated, { FadeIn, FadeInUp } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -31,13 +31,20 @@ const CARD_WIDTH = (width - 48) / 2;
 
 const getIcon = (iconName: string, size: number, color: string) => {
   switch (iconName) {
-    case "Calculator": return <Calculator size={size} color={color} />;
-    case "Atom": return <Atom size={size} color={color} />;
-    case "BookOpen": return <BookOpen size={size} color={color} />;
-    case "Landmark": return <Landmark size={size} color={color} />;
-    case "Globe": return <Globe size={size} color={color} />;
-    case "Zap": return <Zap size={size} color={color} />;
-    default: return <BookOpen size={size} color={color} />;
+    case "Calculator":
+      return <Calculator size={size} color={color} />;
+    case "Atom":
+      return <Atom size={size} color={color} />;
+    case "BookOpen":
+      return <BookOpen size={size} color={color} />;
+    case "Landmark":
+      return <Landmark size={size} color={color} />;
+    case "Globe":
+      return <Globe size={size} color={color} />;
+    case "Zap":
+      return <Zap size={size} color={color} />;
+    default:
+      return <BookOpen size={size} color={color} />;
   }
 };
 
@@ -49,8 +56,18 @@ const ProgressBadge = ({ percent }: { percent: number }) => (
   </View>
 );
 
-const SubjectCard = ({ subject, index }: { subject: APISubject; index: number }) => (
-  <Animated.View entering={FadeInUp.delay(index * 100).springify().damping(14)}>
+const SubjectCard = ({
+  subject,
+  index,
+}: {
+  subject: APISubject;
+  index: number;
+}) => (
+  <Animated.View
+    entering={FadeInUp.delay(index * 100)
+      .springify()
+      .damping(14)}
+  >
     <TouchableOpacity
       activeOpacity={0.88}
       style={{ width: CARD_WIDTH, backgroundColor: subject.color }}
@@ -64,22 +81,40 @@ const SubjectCard = ({ subject, index }: { subject: APISubject; index: number })
         <ProgressBadge percent={subject.progress} />
       </View>
       <View className="mt-8">
-        <Text className="text-white font-black text-xl mb-1">{subject.title}</Text>
+        <Text className="text-white font-black text-xl mb-1">
+          {subject.title}
+        </Text>
         <Text className="text-white/90 text-xs font-medium">
-          {subject.lessonsCount} lessons • {subject.videosCount} vids • {subject.quizzesCount} qs
+          {subject.lessonsCount} lessons • {subject.videosCount} vids •{" "}
+          {subject.quizzesCount} qs
         </Text>
       </View>
     </TouchableOpacity>
   </Animated.View>
 );
 
-const FilterPill = ({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) => (
+const FilterPill = ({
+  label,
+  active,
+  onPress,
+}: {
+  label: string;
+  active: boolean;
+  onPress: () => void;
+}) => (
   <TouchableOpacity
     onPress={onPress}
-    className={`px-5 py-2.5 rounded-full mr-3 border ${active ? "bg-[#1F2937] border-[#1F2937]" : "bg-white border-gray-200 shadow-sm"
-      }`}
+    className={`px-5 py-2.5 rounded-full mr-3 border ${
+      active
+        ? "bg-[#1F2937] border-[#1F2937]"
+        : "bg-white border-gray-200 shadow-sm"
+    }`}
   >
-    <Text className={`font-bold text-sm ${active ? "text-white" : "text-gray-600"}`}>{label}</Text>
+    <Text
+      className={`font-bold text-sm ${active ? "text-white" : "text-gray-600"}`}
+    >
+      {label}
+    </Text>
   </TouchableOpacity>
 );
 
@@ -93,9 +128,10 @@ export default function Subjects() {
   const [activeFilter, setActiveFilter] = useState("All");
   const [uploading, setUploading] = useState(false);
 
-  useEffect(() => { loadSubjects(); }, []);
+  // Get subjectId from URL parameters
+  const { subjectId } = useLocalSearchParams<{ subjectId?: string }>();
 
-  const loadSubjects = async () => {
+  const loadSubjects = React.useCallback(async () => {
     setIsLoading(true);
     try {
       const data = await fetchSubjects();
@@ -104,7 +140,7 @@ export default function Subjects() {
         const localPdfs = await LocalPDFStorage.getAllPDFs(user._id);
         const localSubjectsMap = new Map<string, APISubject>();
 
-        localPdfs.forEach(pdf => {
+        localPdfs.forEach((pdf) => {
           if (!pdf.subject) return;
           const subjectKey = pdf.subject;
 
@@ -124,14 +160,18 @@ export default function Subjects() {
           subj.lessonsCount += 1;
         });
 
-        const apiSubjectTitles = new Set(data.map(s => s.title.toLowerCase()));
+        const apiSubjectTitles = new Set(
+          data.map((s) => s.title.toLowerCase()),
+        );
 
         for (const [title, localSubj] of localSubjectsMap.entries()) {
           if (!apiSubjectTitles.has(title.toLowerCase())) {
             data.push(localSubj);
             apiSubjectTitles.add(title.toLowerCase());
           } else {
-            const existing = data.find(s => s.title.toLowerCase() === title.toLowerCase());
+            const existing = data.find(
+              (s) => s.title.toLowerCase() === title.toLowerCase(),
+            );
             if (existing) {
               existing.lessonsCount += localSubj.lessonsCount;
             }
@@ -146,7 +186,22 @@ export default function Subjects() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    loadSubjects();
+  }, [loadSubjects]);
+
+  // If subjectId is provided, find and navigate to that specific subject
+  useEffect(() => {
+    if (subjectId && subjects.length > 0) {
+      const targetSubject = subjects.find((s) => s.id === subjectId);
+      if (targetSubject) {
+        // Navigate to the specific subject's lesson page
+        router.push(`/lesson/${subjectId}`);
+      }
+    }
+  }, [subjectId, subjects]);
 
   // ✅ FIXED: uses LocalPDFStorage (local, per-user) — NOT Cloudinary
   const handleAddMaterial = async () => {
@@ -202,11 +257,17 @@ export default function Subjects() {
     <SafeAreaView className="flex-1 bg-gray-50" edges={["top"]}>
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 120, paddingTop: 10 }}
+        contentContainerStyle={{
+          paddingHorizontal: 20,
+          paddingBottom: 120,
+          paddingTop: 10,
+        }}
         showsVerticalScrollIndicator={false}
       >
         <Animated.View entering={FadeInUp.delay(50)}>
-          <Text className="text-4xl font-black text-gray-900 mb-6 tracking-tight">Subjects</Text>
+          <Text className="text-4xl font-black text-gray-900 mb-6 tracking-tight">
+            Subjects
+          </Text>
         </Animated.View>
 
         <Animated.View
@@ -232,7 +293,12 @@ export default function Subjects() {
             contentContainerStyle={{ paddingRight: 8 }}
           >
             {FILTERS.map((f) => (
-              <FilterPill key={f} label={f} active={activeFilter === f} onPress={() => setActiveFilter(f)} />
+              <FilterPill
+                key={f}
+                label={f}
+                active={activeFilter === f}
+                onPress={() => setActiveFilter(f)}
+              />
             ))}
           </ScrollView>
         </Animated.View>
@@ -240,18 +306,29 @@ export default function Subjects() {
         {isLoading ? (
           <View className="flex-1 items-center justify-center pt-20">
             <ActivityIndicator size="large" color="#6B4EFF" />
-            <Text className="text-gray-400 font-medium mt-4">Loading subjects...</Text>
+            <Text className="text-gray-400 font-medium mt-4">
+              Loading subjects...
+            </Text>
           </View>
         ) : filtered.length === 0 ? (
-          <Animated.View entering={FadeIn} className="items-center justify-center pt-10">
-            <Text className="text-gray-400 font-medium">No subjects found.</Text>
+          <Animated.View
+            entering={FadeIn}
+            className="items-center justify-center pt-10"
+          >
+            <Text className="text-gray-400 font-medium">
+              No subjects found.
+            </Text>
           </Animated.View>
         ) : (
           <View>
             {rows.map((row, i) => (
               <View key={i} className="flex-row justify-between mb-2">
                 {row.map((subject, j) => (
-                  <SubjectCard key={subject.id} subject={subject} index={i * 2 + j} />
+                  <SubjectCard
+                    key={subject.id}
+                    subject={subject}
+                    index={i * 2 + j}
+                  />
                 ))}
                 {row.length === 1 && <View style={{ width: CARD_WIDTH }} />}
               </View>
@@ -261,7 +338,10 @@ export default function Subjects() {
       </ScrollView>
 
       {/* Add Material FAB */}
-      <Animated.View entering={FadeInUp.delay(400)} className="absolute bottom-6 right-5 shadow-2xl">
+      <Animated.View
+        entering={FadeInUp.delay(400)}
+        className="absolute bottom-6 right-5 shadow-2xl"
+      >
         <TouchableOpacity
           className="flex-row items-center bg-[#6B4EFF] px-6 py-4 rounded-full shadow-lg"
           activeOpacity={0.85}
