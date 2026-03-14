@@ -1,0 +1,93 @@
+Sample Educational Content
+
+Chapter 1: Introduction to Programming
+
+Programming is the art and science of creating instructions that computers can execute to perform specific tasks. It involves writing code in various programming languages to solve real-world problems and build innovative applications.
+
+Key Programming Concepts:
+1. Variables and Data Types - Storing and manipulating data
+2. Control Structures - Making decisions and repeating actions
+3. Functions and Methods - Reusable blocks of code
+4. Object-Oriented Programming - Organizing code into objects
+5. Debugging and Testing - Finding and fixing errors
+
+Chapter 2: Web Development Fundamentals
+
+Web development encompasses creating websites and web applications that run in browsers. It consists of three main areas:
+
+Frontend Development:
+- HTML (HyperText Markup Language) - Structure and content
+- CSS (Cascading Style Sheets) - Styling and layout
+- JavaScript - Interactivity and dynamic behavior
+
+Backend Development:
+- Server-side programming (Node.js, Python, Ruby)
+- Database management (SQL, NoSQL)
+- API development and integration
+
+Chapter 3: Mobile Application Development
+
+Mobile app development focuses on creating applications for smartphones and tablets. Popular approaches include:
+
+Native Development:
+- iOS development using Swift and Xcode
+- Android development using Kotlin and Android Studio
+
+Cross-Platform Development:
+- React Native - Build once, deploy everywhere
+- Flutter - Google's UI toolkit for mobile apps
+- Xamarin - Microsoft's cross-platform solution
+
+Chapter 4: Software Engineering Best Practices
+
+Good software engineering practices ensure code quality, maintainability, and scalability:
+
+Clean Code Principles:
+- Write meaningful variable and function names
+- Keep functions small and focused
+- Avoid code duplication
+- Write comments that explain why, not what
+
+Design Patterns:
+- Singleton Pattern - Ensure only one instance
+- Observer Pattern - Notify multiple objects
+- Factory Pattern - Create objects without specifying exact class
+- MVC Pattern - Separate concerns in applications
+
+Version Control:
+- Git for tracking changes
+- Branching for feature development
+- Pull requests for code review
+- Continuous integration and deployment
+
+Chapter 5: Modern Technology Trends
+
+Emerging technologies are shaping the future of software development:
+
+Artificial Intelligence and Machine Learning:
+- Natural language processing
+- Computer vision
+- Predictive analytics
+- Automated decision making
+
+Cloud Computing:
+- Scalable infrastructure
+- Platform as a Service (PaaS)
+- Serverless computing
+- Microservices architecture
+
+Internet of Things (IoT):
+- Connected devices and sensors
+- Smart home technology
+- Industrial IoT applications
+- Edge computing
+
+Practice Questions:
+
+1. What is the difference between frontend and backend development?
+2. Explain the importance of version control in collaborative software development.
+3. Compare native vs cross-platform mobile development approaches.
+4. How do design patterns improve code maintainability?
+5. What are the key benefits of cloud computing for modern applications?
+
+This sample content provides comprehensive material for testing AI features including summarization, study guide generation, and quiz creation.

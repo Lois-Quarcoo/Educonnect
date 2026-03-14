@@ -15,6 +15,7 @@ import {
     Platform,
     Pressable,
     ScrollView,
+    StyleSheet,
     Text,
     TextInput,
     TouchableOpacity,
@@ -42,24 +43,24 @@ const Login = () => {
       colors={["#8B5CF6", "#06B6D4"]}
       start={{ x: 0, y: 0 }}
       end={{ x: 0, y: 1 }}
-      className="flex-1"
+      style={styles.container}
     >
       <KeyboardAvoidingView
-        className="flex-1"
+        style={styles.container}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <ScrollView
-          className="flex-1"
-          contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 40 }}
+          style={styles.container}
+          contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
           <SafeAreaView>
             {/* Back Button */}
-            <View className="mt-2">
+            <View style={styles.backButtonContainer}>
               <TouchableOpacity
                 onPress={() => router.back()}
-                className="w-10 h-10 bg-white/20 backdrop-blur rounded-full items-center justify-center"
+                style={styles.backButton}
                 accessibilityLabel="Go back"
               >
                 <ChevronLeft size={24} color="#ffffff" />
@@ -67,33 +68,29 @@ const Login = () => {
             </View>
 
             {/* Logo */}
-            <View className="items-center mt-8 mb-8">
-              <View className="w-20 h-20 bg-white rounded-full items-center justify-center shadow-xl">
+            <View style={styles.logoContainer}>
+              <View style={styles.logo}>
                 <BookOpen size={36} color="#8B5CF6" />
               </View>
             </View>
 
             {/* Heading */}
-            <View className="items-center mb-8">
-              <Text className="font-bold text-3xl text-white text-center mb-2">
-                Welcome Back!
-              </Text>
-              <Text className="text-white/80 text-center">
+            <View style={styles.headingContainer}>
+              <Text style={styles.heading}>Welcome Back!</Text>
+              <Text style={styles.subheading}>
                 Enter your details to continue learning
               </Text>
             </View>
 
             {/* White Card Container */}
-            <View className="bg-white rounded-3xl p-6 shadow-xl">
+            <View style={styles.cardContainer}>
               {/* Email Input */}
-              <View className="mb-4">
-                <Text className="text-gray-700 mb-2 font-medium">
-                  Email Address
-                </Text>
-                <View className="flex-row items-center bg-gray-50 p-4 rounded-xl border border-gray-200">
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Email Address</Text>
+                <View style={styles.inputWrapper}>
                   <Mail size={18} color="#6B7280" />
                   <TextInput
-                    className="ml-3 flex-1 text-gray-800"
+                    style={styles.textInput}
                     placeholder="example@example.com"
                     placeholderTextColor="#9CA3AF"
                     keyboardType="email-address"
@@ -108,12 +105,12 @@ const Login = () => {
               </View>
 
               {/* Password Input */}
-              <View className="mb-4">
-                <Text className="text-gray-700 mb-2 font-medium">Password</Text>
-                <View className="flex-row items-center bg-gray-50 p-4 rounded-xl border border-gray-200">
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Password</Text>
+                <View style={styles.inputWrapper}>
                   <Lock size={18} color="#6B7280" />
                   <TextInput
-                    className="ml-3 flex-1 text-gray-800"
+                    style={styles.textInput}
                     placeholder="••••••••"
                     placeholderTextColor="#9CA3AF"
                     secureTextEntry={!showPassword}
@@ -140,32 +137,34 @@ const Login = () => {
               </View>
 
               {/* Forgot Password */}
-              <TouchableOpacity className="mt-2 self-end">
-                <Text className="text-purple-600 text-sm font-medium">
-                  Forgot Password?
-                </Text>
+              <TouchableOpacity style={styles.forgotPasswordButton}>
+                <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
               </TouchableOpacity>
 
               {/* Login Button */}
               <TouchableOpacity
-                className="mt-6 py-4 rounded-full items-center shadow-lg"
-                style={{ backgroundColor: "#8B5CF6" }}
+                style={[
+                  styles.loginButton,
+                  isLoading && styles.loginButtonDisabled,
+                ]}
                 onPress={handleLogin}
                 disabled={isLoading}
               >
                 {isLoading ? (
                   <ActivityIndicator size="small" color="#ffffff" />
                 ) : (
-                  <Text className="text-white font-bold text-lg">Log In</Text>
+                  <Text style={styles.loginButtonText}>Log In</Text>
                 )}
               </TouchableOpacity>
 
               {/* Sign Up Link */}
-              <View className="mt-6 flex-row justify-center">
-                <Text className="text-gray-600">Don't have an account? </Text>
+              <View style={styles.signUpContainer}>
+                <Text style={styles.signUpText}>
+                  Don&apos;t have an account?{" "}
+                </Text>
                 <Link href="/(auth)/signup" asChild>
                   <TouchableOpacity>
-                    <Text className="text-purple-600 font-bold">Sign up</Text>
+                    <Text style={styles.signUpLink}>Sign up</Text>
                   </TouchableOpacity>
                 </Link>
               </View>
@@ -176,5 +175,134 @@ const Login = () => {
     </LinearGradient>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: 24,
+    paddingBottom: 40,
+  },
+  backButtonContainer: {
+    marginTop: 8,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  logoContainer: {
+    alignItems: "center",
+    marginTop: 32,
+    marginBottom: 32,
+  },
+  logo: {
+    width: 80,
+    height: 80,
+    backgroundColor: "white",
+    borderRadius: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 20,
+  },
+  headingContainer: {
+    alignItems: "center",
+    marginBottom: 32,
+  },
+  heading: {
+    fontSize: 28,
+    fontWeight: "bold",
+    color: "white",
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  subheading: {
+    fontSize: 16,
+    color: "rgba(255, 255, 255, 0.8)",
+    textAlign: "center",
+  },
+  cardContainer: {
+    backgroundColor: "white",
+    borderRadius: 24,
+    padding: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 20,
+  },
+  inputContainer: {
+    marginBottom: 16,
+  },
+  inputLabel: {
+    color: "#374151",
+    marginBottom: 8,
+    fontWeight: "500",
+  },
+  inputWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F9FAFB",
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  textInput: {
+    marginLeft: 12,
+    flex: 1,
+    color: "#1F2937",
+    fontSize: 16,
+  },
+  forgotPasswordButton: {
+    marginTop: 8,
+    alignSelf: "flex-end",
+  },
+  forgotPasswordText: {
+    color: "#8B5CF6",
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  loginButton: {
+    marginTop: 24,
+    paddingVertical: 16,
+    borderRadius: 25,
+    alignItems: "center",
+    backgroundColor: "#8B5CF6",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  loginButtonDisabled: {
+    opacity: 0.6,
+  },
+  loginButtonText: {
+    color: "white",
+    fontWeight: "bold",
+    fontSize: 18,
+  },
+  signUpContainer: {
+    marginTop: 24,
+    flexDirection: "row",
+    justifyContent: "center",
+  },
+  signUpText: {
+    color: "#4B5563",
+  },
+  signUpLink: {
+    color: "#8B5CF6",
+    fontWeight: "bold",
+  },
+});
 
 export default Login;

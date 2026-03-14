@@ -53,9 +53,14 @@ export const generateTutorResponse = async (
 
   // ── Step 1: quick connectivity check ─────────────────────────────────────
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 seconds
+
     const ping = await fetch(`${BACKEND_URL}/health`, {
-      signal: AbortSignal.timeout(5000),
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
     if (!ping.ok) throw new Error("health check failed");
   } catch {
     console.warn("[Spark] backend unreachable at", BACKEND_URL);
@@ -68,13 +73,18 @@ export const generateTutorResponse = async (
   }
 
   // ── Step 2: actual AI request ─────────────────────────────────────────────
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 seconds
+
   try {
     const response = await fetch(`${BACKEND_URL}/ai/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ messages }),
-      signal: AbortSignal.timeout(60_000),
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       const errText = await response.text();
@@ -95,6 +105,7 @@ export const generateTutorResponse = async (
       suggestions: generateSuggestions(newMessageText),
     };
   } catch (error: any) {
+    clearTimeout(timeoutId);
     const msg = error?.message || String(error);
     console.error("[Spark] generateTutorResponse error:", msg);
 

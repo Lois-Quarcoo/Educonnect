@@ -71,6 +71,20 @@ const MaterialsScreen = () => {
           pdf.name.toLowerCase().includes(searchQuery.toLowerCase()),
         );
       }
+
+      // Add sample PDF if no PDFs exist
+      if (filteredPDFs.length === 0) {
+        const samplePDF: PDFDocument = {
+          id: "sample-programming-guide",
+          name: "Sample Programming Guide",
+          uri: "file:///Users/codetrain/Desktop/Educonnect/assets/pdfs/sample.pdf",
+          size: 2500,
+          uploadDate: new Date().toISOString(),
+          subject: "Computer Science",
+        };
+        filteredPDFs = [samplePDF];
+      }
+
       setLocalPDFs(filteredPDFs);
     } catch (error) {
       console.error("Failed to load PDFs:", error);

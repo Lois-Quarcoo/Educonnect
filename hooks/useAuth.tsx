@@ -69,12 +69,28 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<AuthError | null>(null);
 
+  // Add timeout to prevent infinite loading
   useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (loading) {
+        console.log("[Auth] Loading timeout, forcing loading to false");
+        setLoading(false);
+      }
+    }, 3000); // 3 second timeout - more aggressive
+
+    return () => clearTimeout(timeout);
+  }, [loading]);
+
+  useEffect(() => {
+    console.log("[Auth] Starting session restore...");
     const restoreSession = async () => {
       try {
         // Restore only the LAST logged-in user's session
         const lastEmail = await AsyncStorage.getItem(LAST_EMAIL_KEY);
+        console.log("[Auth] Last email found:", lastEmail);
+
         if (!lastEmail) {
+          console.log("[Auth] No last email found, user not logged in");
           setLoading(false);
           return;
         }
@@ -82,21 +98,32 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         const storedToken = await AsyncStorage.getItem(tokenKey(lastEmail));
         const storedUser = await AsyncStorage.getItem(userKey(lastEmail));
 
+        console.log("[Auth] Stored data exists:", {
+          hasToken: !!storedToken,
+          hasUser: !!storedUser,
+        });
+
         if (storedToken && storedUser) {
           const parsedUser: User = JSON.parse(storedUser);
           // Verify the stored user matches the last email (safety check)
           if (parsedUser.email.toLowerCase() === lastEmail.toLowerCase()) {
+            console.log(
+              "[Auth] Session restored successfully for:",
+              parsedUser.email,
+            );
             setAuthToken(storedToken);
             setUser(parsedUser);
           } else {
+            console.log("[Auth] Email mismatch, clearing sessions");
             // Mismatch — clear everything
             await clearAllStoredSessions();
           }
         }
       } catch (err) {
-        console.error("Failed to restore session:", err);
+        console.error("[Auth] Failed to restore session:", err);
         await clearAllStoredSessions();
       } finally {
+        console.log("[Auth] Session restore completed, loading:", false);
         setLoading(false);
       }
     };
@@ -111,7 +138,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       const keys = await AsyncStorage.getAllKeys();
       const authKeys = keys.filter(
-        (k) => k.startsWith("auth_token:") || k.startsWith("auth_user:") || k === LAST_EMAIL_KEY,
+        (k) =>
+          k.startsWith("auth_token:") ||
+          k.startsWith("auth_user:") ||
+          k === LAST_EMAIL_KEY,
       );
       if (authKeys.length > 0) await AsyncStorage.multiRemove(authKeys);
     } catch (err) {
@@ -144,7 +174,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       throw new Error(e.message);
     }
     if (!password) {
-      const e: AuthError = { field: "password", message: "Password is required." };
+      const e: AuthError = {
+        field: "password",
+        message: "Password is required.",
+      };
       setError(e);
       throw new Error(e.message);
     }
@@ -207,7 +240,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setUser(null);
       setAuthToken(null);
 
-      const userData = await authAPI.register(name, email, password, profileImage);
+      const userData = await authAPI.register(
+        name,
+        email,
+        password,
+        profileImage,
+      );
 
       if (userData.token) {
         setAuthToken(userData.token);
@@ -254,7 +292,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   return (
     <AuthContext.Provider
-      value={{ user, loading, error, login, signup, logout, refreshUserData, clearError }}
+      value={{
+        user,
+        loading,
+        error,
+        login,
+        signup,
+        logout,
+        refreshUserData,
+        clearError,
+      }}
     >
       {children}
     </AuthContext.Provider>

@@ -1,5 +1,10 @@
 import { useAuth } from "@/hooks/useAuth";
-import { AIPDFService, PDFSummary, StudyGuide } from "@/services/aiPDFService";
+import {
+  AIPDFService,
+  PDFSummary,
+  QuizSet,
+  StudyGuide,
+} from "@/services/aiPDFService";
 import { PDFDocument } from "@/services/localPDFStorage";
 import { router, useLocalSearchParams } from "expo-router";
 import {
@@ -17,6 +22,7 @@ import {
   Alert,
   Dimensions,
   ScrollView,
+  StyleSheet,
   Text,
   TouchableOpacity,
   View,
@@ -52,16 +58,27 @@ const AIFeaturesScreen = () => {
 
   // ✅ FIX: depend on individual primitive values, not the params object
   useEffect(() => {
+    console.log("AI Features Screen - Params:", {
+      uri,
+      name,
+      subject,
+      size,
+      uploadDate,
+    });
+
     if (uri) {
       const pdfDoc: PDFDocument = {
         id: uri.split("/").pop() || "unknown",
-        name,
+        name: name || "Unknown PDF",
         uri,
         size: parseInt(size) || 0,
-        uploadDate,
-        subject,
+        uploadDate: uploadDate || new Date().toISOString(),
+        subject: subject || "General",
       };
+      console.log("Setting PDF:", pdfDoc);
       setPdf(pdfDoc);
+    } else {
+      console.error("No URI provided to AI Features screen");
     }
   }, [uri, name, subject, size, uploadDate]);
 
@@ -714,35 +731,72 @@ const AIFeaturesScreen = () => {
 
   if (!pdf) {
     return (
-      <SafeAreaView className="flex-1 bg-gray-50 justify-center items-center">
+      <SafeAreaView className="flex-1 bg-gray-50 justify-center items-center px-6">
         <ActivityIndicator size="large" color="#3B82F6" />
-        <Text className="text-gray-500 mt-3">Loading PDF information...</Text>
+        <Text className="text-gray-500 mt-3 text-center">
+          {uri
+            ? "Loading PDF information..."
+            : "No PDF selected. Please go back and select a PDF."}
+        </Text>
+        {!uri && (
+          <TouchableOpacity
+            onPress={() => router.back()}
+            className="mt-4 bg-blue-600 px-6 py-3 rounded-xl"
+          >
+            <Text className="text-white font-semibold">Go Back</Text>
+          </TouchableOpacity>
+        )}
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <SafeAreaView style={styles.container}>
       {/* Header */}
-      <View className="bg-white border-b border-gray-200 px-4 pt-4 pb-3">
-        <View className="flex-row items-center mb-3">
+      <View style={styles.header}>
+        <View style={styles.headerRow}>
           <TouchableOpacity
             onPress={() => router.back()}
-            className="p-2 bg-gray-100 rounded-lg mr-3"
+            style={styles.backButton}
           >
-            <ChevronLeft size={20} color="#374151" />
+            <ChevronLeft size={24} color="#374151" />
           </TouchableOpacity>
-          <View className="flex-1">
-            <Text className="text-lg font-bold text-gray-900" numberOfLines={1}>
-              🧠 AI Learning Assistant
-            </Text>
-            <Text className="text-sm text-gray-500" numberOfLines={1}>
-              {pdf.name}
-            </Text>
+          <View style={styles.headerContent}>
+            <Text style={styles.headerTitle}>AI Features</Text>
+            <Text style={styles.headerSubtitle}>{pdf.name}</Text>
           </View>
         </View>
+      </View>
 
-        {/* Tab Navigation */}
+      {/* Tab Navigation */}
+      <View className="flex-row space-x-2">
+        {renderTabButton(
+          "summary",
+          <Brain
+            size={16}
+            color={activeTab === "summary" ? "white" : "#374151"}
+          />,
+          "Summary",
+          "bg-blue-600",
+        )}
+        {renderTabButton(
+          "study-guide",
+          <BookOpen
+            size={16}
+            color={activeTab === "study-guide" ? "white" : "#374151"}
+          />,
+          "Study Guide",
+          "bg-green-600",
+        )}
+        {renderTabButton(
+          "quiz",
+          <Flashlight
+            size={16}
+            color={activeTab === "quiz" ? "white" : "#374151"}
+          />,
+          "Quiz",
+          "bg-purple-600",
+        )}
         <View className="flex-row space-x-2">
           {renderTabButton(
             "summary",
@@ -792,5 +846,43 @@ const AIFeaturesScreen = () => {
     </SafeAreaView>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#F9FAFB",
+  },
+  header: {
+    backgroundColor: "white",
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E7EB",
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 12,
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  backButton: {
+    padding: 8,
+    backgroundColor: "#F3F4F6",
+    borderRadius: 8,
+    marginRight: 12,
+  },
+  headerContent: {
+    flex: 1,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#111827",
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: "#6B7280",
+  },
+});
 
 export default AIFeaturesScreen;

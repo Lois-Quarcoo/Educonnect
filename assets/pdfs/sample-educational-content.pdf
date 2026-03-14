@@ -1,0 +1,58 @@
+Sample Educational Content for Testing
+
+This is a sample PDF document created for testing the AI PDF features in Educonnect.
+
+Chapter 1: Introduction to Programming
+
+Programming is the process of creating instructions that computers can follow to perform specific tasks. 
+It involves writing code in various programming languages to solve problems and build applications.
+
+Key Concepts:
+1. Variables and Data Types
+2. Control Structures (if/else, loops)
+3. Functions and Methods
+4. Object-Oriented Programming
+5. Debugging and Testing
+
+Chapter 2: Web Development
+
+Web development involves creating websites and web applications. It consists of:
+- Frontend Development (HTML, CSS, JavaScript)
+- Backend Development (Node.js, Python, Ruby)
+- Database Management
+- API Development
+
+Chapter 3: Mobile App Development
+
+Mobile app development focuses on creating applications for smartphones and tablets. Popular approaches include:
+- Native Development (iOS, Android)
+- Cross-Platform Development (React Native, Flutter)
+- Progressive Web Apps
+
+Chapter 4: Software Engineering Principles
+
+Good software engineering practices include:
+- Clean Code Principles
+- Design Patterns
+- Version Control (Git)
+- Testing Methodologies
+- Agile Development
+
+Chapter 5: Emerging Technologies
+
+Current trends in technology include:
+- Artificial Intelligence and Machine Learning
+- Cloud Computing
+- Internet of Things (IoT)
+- Blockchain Technology
+- Quantum Computing
+
+Practice Questions:
+
+1. What is the difference between frontend and backend development?
+2. Explain the importance of version control in software development.
+3. What are the key principles of clean code?
+4. Compare native vs cross-platform mobile development.
+5. How does cloud computing benefit modern applications?
+
+This sample content provides a foundation for testing AI features like summarization, study guide generation, and quiz creation.

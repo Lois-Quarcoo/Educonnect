@@ -2,7 +2,13 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Link } from "expo-router";
 import { BookOpen, Sparkles } from "lucide-react-native";
 import React from "react";
-import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
+import {
+    ActivityIndicator,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const Welcome = () => {
@@ -11,56 +17,129 @@ const Welcome = () => {
       colors={["#8B5CF6", "#06B6D4"]}
       start={{ x: 0, y: 0 }}
       end={{ x: 0, y: 1 }}
-      className="flex-1"
+      style={styles.container}
     >
-      <SafeAreaView className="flex-1">
+      <SafeAreaView style={styles.safeArea}>
         {/* Content Container */}
-        <View className="flex-1 justify-between items-center px-8 py-12">
+        <View style={styles.contentContainer}>
           {/* Top Section - Logo and Title */}
-          <View className="items-center mt-20">
+          <View style={styles.topSection}>
             {/* Logo Circle */}
-            <View className="w-32 h-32 bg-white rounded-full items-center justify-center mb-8 shadow-2xl">
-              <View className="relative">
+            <View style={styles.logoContainer}>
+              <View style={styles.logoInner}>
                 <BookOpen size={48} color="#8B5CF6" />
-                <Sparkles
-                  size={20}
-                  color="#F97316"
-                  className="absolute -top-2 -right-2"
-                />
+                <Sparkles size={20} color="#F97316" style={styles.sparks} />
               </View>
             </View>
 
             {/* App Name */}
-            <Text className="text-4xl font-bold text-white mb-3 tracking-wide">
-              EduConnect
-            </Text>
+            <Text style={styles.appName}>EduConnect</Text>
 
             {/* Tagline */}
-            <Text className="text-white/80 text-lg text-center">
-              Learn Smarter, Together
-            </Text>
+            <Text style={styles.tagline}>Learn Smarter, Together</Text>
           </View>
 
           {/* Bottom Section - Get Started Button */}
-          <View className="w-full items-center mb-8">
+          <View style={styles.bottomSection}>
             <Link href="/(auth)/login" asChild>
               <TouchableOpacity
-                className="bg-white w-full py-4 rounded-full items-center shadow-lg active:scale-95 transition-transform"
-                style={{ elevation: 8 }}
+                style={styles.getStartedButton}
+                activeOpacity={0.8}
               >
-                <Text className="text-purple-600 font-bold text-lg">
-                  Get Started
-                </Text>
+                <Text style={styles.getStartedText}>Get Started</Text>
               </TouchableOpacity>
             </Link>
 
             {/* Loading Indicator */}
-            <ActivityIndicator size="small" color="#F97316" className="mt-6" />
+            <ActivityIndicator
+              size="small"
+              color="#F97316"
+              style={styles.loadingIndicator}
+            />
           </View>
         </View>
       </SafeAreaView>
     </LinearGradient>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  safeArea: {
+    flex: 1,
+  },
+  contentContainer: {
+    flex: 1,
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 32,
+    paddingVertical: 48,
+  },
+  topSection: {
+    alignItems: "center",
+    marginTop: 80,
+  },
+  logoContainer: {
+    width: 128,
+    height: 128,
+    backgroundColor: "white",
+    borderRadius: 64,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 32,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 20,
+  },
+  logoInner: {
+    position: "relative",
+  },
+  sparks: {
+    position: "absolute",
+    top: -8,
+    right: -8,
+  },
+  appName: {
+    fontSize: 36,
+    fontWeight: "bold",
+    color: "white",
+    marginBottom: 12,
+    letterSpacing: 2,
+  },
+  tagline: {
+    fontSize: 18,
+    color: "rgba(255, 255, 255, 0.8)",
+    textAlign: "center",
+  },
+  bottomSection: {
+    width: "100%",
+    alignItems: "center",
+    marginBottom: 32,
+  },
+  getStartedButton: {
+    backgroundColor: "white",
+    width: "100%",
+    paddingVertical: 16,
+    borderRadius: 25,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  getStartedText: {
+    color: "#8B5CF6",
+    fontWeight: "bold",
+    fontSize: 18,
+  },
+  loadingIndicator: {
+    marginTop: 24,
+  },
+});
 
 export default Welcome;

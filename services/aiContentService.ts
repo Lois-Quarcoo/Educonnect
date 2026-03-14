@@ -116,7 +116,8 @@ const STATIC_CONTENT: Record<
         text: "The Pythagorean theorem a² + b² = c² applies to ALL triangles.",
         options: ["True", "False"],
         correctAnswerIndex: 1,
-        explanation: "It only applies to RIGHT triangles, where c is the hypotenuse.",
+        explanation:
+          "It only applies to RIGHT triangles, where c is the hypotenuse.",
         difficulty: "Medium",
       },
       {
@@ -183,13 +184,19 @@ const STATIC_CONTENT: Record<
         text: "Which organelle is known as the 'powerhouse of the cell'?",
         options: ["Nucleus", "Ribosome", "Mitochondria", "Golgi apparatus"],
         correctAnswerIndex: 2,
-        explanation: "Mitochondria produce ATP through cellular respiration, fuelling all cell activities.",
+        explanation:
+          "Mitochondria produce ATP through cellular respiration, fuelling all cell activities.",
         difficulty: "Easy",
       },
       {
         type: "multiple_choice",
         text: "Photosynthesis uses CO₂ and water to produce:",
-        options: ["Protein and oxygen", "Glucose and oxygen", "ATP and CO₂", "Starch and nitrogen"],
+        options: [
+          "Protein and oxygen",
+          "Glucose and oxygen",
+          "ATP and CO₂",
+          "Starch and nitrogen",
+        ],
         correctAnswerIndex: 1,
         explanation: "6CO₂ + 6H₂O + light → C₆H₁₂O₆ (glucose) + 6O₂.",
         difficulty: "Easy",
@@ -199,7 +206,8 @@ const STATIC_CONTENT: Record<
         text: "Prokaryotic cells have a membrane-bound nucleus.",
         options: ["True", "False"],
         correctAnswerIndex: 1,
-        explanation: "Prokaryotes lack a membrane-bound nucleus — only eukaryotes have one.",
+        explanation:
+          "Prokaryotes lack a membrane-bound nucleus — only eukaryotes have one.",
         difficulty: "Medium",
       },
       {
@@ -207,15 +215,22 @@ const STATIC_CONTENT: Record<
         text: "What percentage of energy typically transfers from one trophic level to the next?",
         options: ["50%", "25%", "10%", "1%"],
         correctAnswerIndex: 2,
-        explanation: "The 10% rule: only ~10% of energy passes between trophic levels; the rest is lost as heat.",
+        explanation:
+          "The 10% rule: only ~10% of energy passes between trophic levels; the rest is lost as heat.",
         difficulty: "Hard",
       },
       {
         type: "multiple_choice",
         text: "In Mendel's genetics, a capital letter (B) represents a:",
-        options: ["Recessive allele", "Dominant allele", "Mutated gene", "Sex-linked trait"],
+        options: [
+          "Recessive allele",
+          "Dominant allele",
+          "Mutated gene",
+          "Sex-linked trait",
+        ],
         correctAnswerIndex: 1,
-        explanation: "Convention: dominant alleles use capital letters; recessive alleles use lowercase.",
+        explanation:
+          "Convention: dominant alleles use capital letters; recessive alleles use lowercase.",
         difficulty: "Medium",
       },
     ],
@@ -251,7 +266,10 @@ export class AIContentService {
         return content;
       }
     } catch (e) {
-      console.log("[AIContentService] backend unavailable, using static fallback:", e);
+      console.log(
+        "[AIContentService] backend unavailable, using static fallback:",
+        e,
+      );
     }
 
     const fallback = this.buildStaticContent(subjectId, subjectTitle);
@@ -265,19 +283,31 @@ export class AIContentService {
     subjectId: string,
     subjectTitle: string,
   ): Promise<AISubjectContent | null> {
-    const res = await fetch(`${API_URL}/ai/content`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ subjectId, subjectTitle }),
-      signal: AbortSignal.timeout(30_000),
-    });
+    // Create manual timeout since AbortSignal.timeout() is not supported in React Native
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 seconds
 
-    if (!res.ok) return null;
+    try {
+      const res = await fetch(`${API_URL}/ai/content`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subjectId, subjectTitle }),
+        signal: controller.signal,
+      });
 
-    const json = await res.json();
-    if (!json.success || !json.data) return null;
+      clearTimeout(timeoutId);
 
-    return json.data as AISubjectContent;
+      if (!res.ok) return null;
+
+      const json = await res.json();
+      if (!json.success || !json.data) return null;
+
+      return json.data as AISubjectContent;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      console.error("AI Content Service error:", error);
+      return null;
+    }
   }
 
   // ── Static fallback ───────────────────────────────────────────────────────────
@@ -300,9 +330,13 @@ export class AIContentService {
 
   // ── AsyncStorage cache ────────────────────────────────────────────────────────
 
-  private static async readCache(subjectId: string): Promise<AISubjectContent | null> {
+  private static async readCache(
+    subjectId: string,
+  ): Promise<AISubjectContent | null> {
     try {
-      const raw = await AsyncStorage.getItem(`${CONTENT_CACHE_KEY}:${subjectId}`);
+      const raw = await AsyncStorage.getItem(
+        `${CONTENT_CACHE_KEY}:${subjectId}`,
+      );
       if (!raw) return null;
       const content: AISubjectContent = JSON.parse(raw);
       const age = Date.now() - new Date(content.generatedAt).getTime();
