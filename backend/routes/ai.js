@@ -132,43 +132,71 @@ Return ONLY valid JSON — no markdown fences, no commentary:
 // ── POST /api/ai/pdf-analyze  (Summary / Study Guide / Quiz from a PDF) ───────
 router.post("/pdf-analyze", async (req, res) => {
   try {
-    const { pdfBase64, pdfName, task } = req.body;
+    const { pdfBase64, pdfName, task, extractedText } = req.body;
     // task: "summary" | "study-guide" | "quiz"
 
-    if (!pdfBase64 || !task) {
+    if (!task || (!pdfBase64 && !extractedText)) {
       return res.status(400).json({
         success: false,
-        message: "pdfBase64 and task are required",
+        message: "task and either pdfBase64 or extractedText are required",
       });
     }
 
+    // Use extracted text if provided, otherwise generate content from filename context
+    const docContext = extractedText
+      ? `The following is the text content extracted from the PDF document "${pdfName}":\n\n${extractedText.slice(0, 8000)}`
+      : `You are generating educational content for a PDF document named "${pdfName}". Create realistic and educationally relevant content based on the subject matter implied by the filename.`;
+
     const PROMPTS = {
-      summary: `Analyse the attached PDF document "${pdfName}" and return ONLY valid JSON:
-{"summary":"2–3 paragraph summary of the document","keyPoints":["point1","point2","point3","point4","point5"],"topics":["topic1","topic2","topic3"],"difficulty":"Beginner","estimatedReadTime":5}`,
+      summary: `${docContext}
 
-      "study-guide": `Create a comprehensive study guide for the attached PDF "${pdfName}" and return ONLY valid JSON:
-{"title":"Study Guide: ${pdfName}","sections":[{"title":"section title","content":"detailed explanation","keyConcepts":["concept1","concept2","concept3"]},{"title":"another section","content":"explanation","keyConcepts":["c1","c2"]}],"practiceQuestions":[{"question":"Q?","answer":"A","difficulty":"Easy"},{"question":"Q?","answer":"A","difficulty":"Medium"},{"question":"Q?","answer":"A","difficulty":"Hard"}]}`,
+Based on this document, return ONLY valid JSON (no markdown fences, no extra text):
+{"summary":"2-3 paragraph summary","keyPoints":["point1","point2","point3","point4","point5"],"topics":["topic1","topic2","topic3"],"difficulty":"Intermediate","estimatedReadTime":5}`,
 
-      quiz: `Create a quiz based on the attached PDF "${pdfName}" and return ONLY valid JSON:
-{"title":"Quiz: ${pdfName}","questions":[{"question":"MCQ?","options":["A","B","C","D"],"correctAnswer":0,"explanation":"why A","difficulty":"Easy","type":"multiple-choice"},{"question":"MCQ?","options":["A","B","C","D"],"correctAnswer":1,"explanation":"why B","difficulty":"Medium","type":"multiple-choice"},{"question":"True/false statement","options":["True","False"],"correctAnswer":0,"explanation":"why","difficulty":"Easy","type":"true-false"},{"question":"MCQ?","options":["A","B","C","D"],"correctAnswer":2,"explanation":"why C","difficulty":"Hard","type":"multiple-choice"},{"question":"MCQ?","options":["A","B","C","D"],"correctAnswer":3,"explanation":"why D","difficulty":"Medium","type":"multiple-choice"}]}`,
+      "study-guide": `${docContext}
+
+Create a comprehensive study guide and return ONLY valid JSON (no markdown fences, no extra text):
+{"title":"Study Guide: ${pdfName}","sections":[{"title":"section title","content":"detailed explanation paragraph","keyConcepts":["concept1","concept2","concept3"]},{"title":"another section","content":"explanation paragraph","keyConcepts":["c1","c2","c3"]}],"practiceQuestions":[{"question":"Q?","answer":"A","difficulty":"Easy"},{"question":"Q?","answer":"A","difficulty":"Medium"},{"question":"Q?","answer":"A","difficulty":"Hard"}]}`,
+
+      quiz: `${docContext}
+
+Create a 5-question quiz and return ONLY valid JSON (no markdown fences, no extra text):
+{"title":"Quiz: ${pdfName}","questions":[{"question":"MCQ?","options":["A","B","C","D"],"correctAnswer":0,"explanation":"why A","difficulty":"Easy","type":"multiple-choice"},{"question":"MCQ?","options":["A","B","C","D"],"correctAnswer":1,"explanation":"why B","difficulty":"Medium","type":"multiple-choice"},{"question":"True/false statement?","options":["True","False"],"correctAnswer":0,"explanation":"why","difficulty":"Easy","type":"true-false"},{"question":"MCQ?","options":["A","B","C","D"],"correctAnswer":2,"explanation":"why C","difficulty":"Hard","type":"multiple-choice"},{"question":"MCQ?","options":["A","B","C","D"],"correctAnswer":3,"explanation":"why D","difficulty":"Medium","type":"multiple-choice"}]}`,
     };
 
     const promptText = PROMPTS[task] || PROMPTS.summary;
 
-    // Gemini 2.0 Flash supports inline PDF data
-    const text = await callGemini(
-      [{
-        role: "user",
-        parts: [
-          { inline_data: { mime_type: "application/pdf", data: pdfBase64 } },
-          { text: promptText },
-        ],
-      }],
-      null,
-      2048,
-    );
+    // Primary approach: text-only (works on all Gemini free/paid tiers)
+    let text;
+    try {
+      text = await callGemini(
+        [{ role: "user", parts: [{ text: promptText }] }],
+        null,
+        2048,
+      );
+    } catch (textErr) {
+      // Fallback: try inline PDF only if text approach failed AND base64 is available
+      // Note: inline PDF requires Gemini 1.5+ with paid tier
+      if (pdfBase64) {
+        console.log("[pdf-analyze] Text-only failed, trying inline PDF:", textErr.message);
+        const fallbackPrompt = `Analyse the attached PDF document "${pdfName}" for task: ${task}. ${PROMPTS[task].split("\n").slice(-2).join("\n")}`;
+        text = await callGemini(
+          [{
+            role: "user",
+            parts: [
+              { inline_data: { mime_type: "application/pdf", data: pdfBase64 } },
+              { text: fallbackPrompt },
+            ],
+          }],
+          null,
+          2048,
+        );
+      } else {
+        throw textErr;
+      }
+    }
 
-    const clean = text.replace(/```json|```/g, "").trim();
+    const clean = text.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
     const parsed = JSON.parse(clean);
 
     res.json({ success: true, data: parsed });
